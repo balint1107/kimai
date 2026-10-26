@@ -1,7 +1,7 @@
 {% extends 'shifts/layout.html.twig' %}
 {% block accounting %}
 {% set texts = {} %}
-{% for key in ['completed','planned','in_progress','cancelled','count','hours','amount','period','category','state','workplace','saved','delete_confirm','overlap','invalid_time','review','save','new_shift','total_amount'] %}
+{% for key in ['completed','planned','in_progress','cancelled','count','hours','amount','period','category','state','workplace','saved','delete_confirm','overlap','invalid_time','review','save','new_shift','total_amount','all','select_workplace','new_workplace','edit_workplace'] %}
     {% set texts = texts|merge({(key): ('shift.' ~ key)|trans}) %}
 {% endfor %}
 <div id="shift-root" data-tab="{{ tab }}" data-token="{{ csrf_token('shifts') }}" data-texts="{{ texts|json_encode|e('html_attr') }}" data-places="{{ places|json_encode|e('html_attr') }}"
@@ -13,7 +13,7 @@
     <div class="card mb-3"><div class="card-body d-flex flex-wrap gap-2 align-items-end">
         <label>{{ 'shift.from'|trans }}<input id="filter-from" class="form-control" type="date"></label>
         <label>{{ 'shift.to'|trans }}<input id="filter-to" class="form-control" type="date"></label>
-        <label>{{ 'shift.workplace'|trans }}<select id="filter-workplace" class="form-select"><option value="">{{ 'shift.all'|trans }}</option></select></label>
+        <label>{{ 'shift.workplace'|trans }}<select id="filter-workplace" class="form-select"{% if tab == 'workplaces' %} required{% endif %}><option value="">{{ (tab == 'workplaces' ? 'shift.select_workplace' : 'shift.all')|trans }}</option></select></label>
         <label>{{ 'shift.category'|trans }}<select id="filter-category" class="form-select"><option value="">{{ 'shift.all'|trans }}</option><option>EFO</option><option>Számla</option></select></label>
         <label>{{ 'shift.state'|trans }}<select id="filter-state" class="form-select"><option value="">{{ 'shift.all'|trans }}</option>{% for state in ['completed','planned','in_progress','cancelled'] %}<option value="{{ state }}">{{ ('shift.' ~ state)|trans }}</option>{% endfor %}</select></label>
         <button class="btn" id="filter-reset">{{ 'shift.reset'|trans }}</button>
@@ -29,19 +29,27 @@
         <h2>{{ 'shift.monthly'|trans }}</h2><div id="report-months" class="table-responsive card mb-3 shift-summary-scroll" tabindex="0" aria-label="{{ 'shift.monthly'|trans }}"></div>
         <h2>{{ 'shift.yearly'|trans }}</h2><div id="report-years" class="table-responsive card shift-summary-scroll" tabindex="0" aria-label="{{ 'shift.yearly'|trans }}"></div>
     {% elseif tab == 'workplaces' %}
-        <div class="card mb-3"><div class="card-body">
-            <h2>{{ 'shift.defaults'|trans }}</h2>
+        <div class="d-flex flex-wrap gap-2 mb-3">
+            <button id="workplace-new" class="btn btn-primary" type="button">{{ 'shift.new_workplace'|trans }}</button>
+            <button id="workplace-edit" class="btn" type="button" disabled>{{ 'shift.edit_workplace'|trans }}</button>
+        </div>
+        <p id="workplace-prompt" class="alert alert-info">{{ 'shift.select_workplace'|trans }}</p>
+        <div id="workplace-reports" class="d-none">
+            <p class="text-muted">{{ 'shift.completed_total'|trans }}</p>
+            <h2>{{ 'shift.monthly'|trans }}</h2><div id="report-workplaces" class="table-responsive card mb-3 shift-summary-scroll" tabindex="0" aria-label="{{ 'shift.monthly'|trans }}"></div>
+            <h2>{{ 'shift.yearly'|trans }}</h2><div id="report-workplace_years" class="table-responsive card shift-summary-scroll" tabindex="0" aria-label="{{ 'shift.yearly'|trans }}"></div>
+        </div>
+        <dialog id="workplace-dialog" class="shift-dialog" aria-labelledby="workplace-title">
+            <div class="d-flex justify-content-between align-items-center mb-3"><h2 id="workplace-title">{{ 'shift.new_workplace'|trans }}</h2><button id="workplace-close" type="button" class="btn-close" aria-label="{{ 'close'|trans }}"></button></div>
+            <div id="workplace-error" class="alert alert-danger d-none" role="alert"></div>
             <form id="workplace-form" class="d-flex gap-2 flex-wrap align-items-end">
                 <input name="id" type="hidden"><label>{{ 'shift.workplace'|trans }}<input name="name" class="form-control" required maxlength="150"></label>
                 <label>{{ 'shift.rate'|trans }}<input name="rate" class="form-control" type="number" min="0" step="1" required></label>
                 <label>{{ 'shift.category'|trans }}<select name="category" class="form-select"><option>EFO</option><option>Számla</option></select></label>
                 <label>{{ 'shift.color'|trans }}<input name="color" class="form-control form-control-color" type="color" value="#206bc4"></label>
-                <button class="btn btn-primary">{{ 'shift.save'|trans }}</button><button class="btn" type="reset">{{ 'shift.new_workplace'|trans }}</button>
+                <button class="btn btn-primary" type="submit">{{ 'shift.save'|trans }}</button>
             </form>
-            <div id="workplace-list" class="d-flex flex-wrap gap-2 mt-3"></div>
-        </div></div>
-        <h2>{{ 'shift.workplace_totals'|trans }}</h2><div id="report-workplaces" class="table-responsive card"></div>
-        <h2 class="mt-3">{{ 'shift.yearly'|trans }}</h2><div id="report-workplace_years" class="table-responsive card"></div>
+        </dialog>
     {% else %}
         <div class="card mb-3"><div class="card-body">
             <h2>{{ 'shift.upload'|trans }}</h2><p>{{ 'shift.import_help'|trans }}</p>

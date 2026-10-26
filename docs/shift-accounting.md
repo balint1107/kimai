@@ -41,6 +41,17 @@ screens. The Időszak header and first-column cells stay pinned to the left with
 opaque backgrounds while the remaining columns scroll. Scroll regions support
 keyboard focus as well as touch/trackpad scrolling.
 
+## Workplace reports and defaults
+
+Munkahelyek requires a single workplace selection; there is no All option. Until
+selected, reports/cards stay empty and export links are disabled. Monthly and yearly
+tables reuse the compact EFO/Számla completed/total layout with a pinned Időszak column.
+Reset clears the selection. Other tabs retain their optional workplace filter.
+Új munkahely opens an empty creation dialog; Edit workplace opens the selected
+workplace's defaults. Saving selects the saved workplace and refreshes its reports.
+Validation failures stay in the dialog without losing input. No existing shift rates
+change when workplace defaults are edited.
+
 ## Workbook import
 
 Upload XLSX (20 MB compressed / 100 MB expanded limit), review the preview, then

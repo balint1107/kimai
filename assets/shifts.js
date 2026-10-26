@@ -46,38 +46,28 @@ function initialize() {
         }
         return params;
     }
-    /** Fills workplace selectors and editable default buttons without evaluating workplace names as HTML. */
+    /** Fills workplace selectors, preserving IDs; workplace reports require one explicit selection. */
     function populatePlaces() {
         for (const select of [form.elements.workplace,document.getElementById('filter-workplace')]) {
             if (!select) {continue;}
             const old=select.value; select.replaceChildren();
-            select.add(new Option(select.id==='filter-workplace' ? text.all || 'Mind' : '—',''));
+            select.add(new Option(select.id==='filter-workplace' ? (root.dataset.tab==='workplaces' ? text.select_workplace : text.all) : '—',''));
             for (const place of places) {select.add(new Option(place.name,place.id));}
             select.value=old;
         }
-        const list=document.getElementById('workplace-list');
-        if (list) {
-            list.replaceChildren();
-            for (const place of places) {
-                const button=document.createElement('button'); button.className='btn btn-sm'; button.textContent=`${place.name} · ${money.format(place.rate)}/h`;
-                button.style.borderColor=place.color;
-                button.addEventListener('click',()=>{ const target=document.getElementById('workplace-form'); for (const key of ['id','name','rate','category','color']) {target.elements[key].value=place[key];} });
-                list.append(button);
-            }
-        }
+        const editButton=document.getElementById('workplace-edit');
+        if (editButton) {editButton.disabled=!document.getElementById('filter-workplace').value;}
     }
-    /** Renders one aggregate table with escaped cell values, total counts, hours and HUF. */
-    function report(target,rows) {
-        const container=document.getElementById(target); if (!container) {return;}
-        const table=document.createElement('table'); table.className='table table-vcenter';
-        const header=table.createTHead().insertRow();
-        for (const key of ['period','category','state','count','hours','amount']) { const cell=document.createElement('th'); cell.textContent=text[key]; header.append(cell); }
-        const body=table.createTBody();
-        for (const row of rows) {
-            const tr=body.insertRow();
-            for (const value of [row.period,row.category,text[row.state],row.count,hours(row.seconds),money.format(row.amount)]) {tr.insertCell().textContent=value;}
-        }
-        container.replaceChildren(table);
+    /** Opens a clean creation dialog, or edits defaults from optional place; saved shift rates stay untouched. */
+    function editWorkplace(place=null) {
+        const target=document.getElementById('workplace-form');
+        target.reset();
+        target.elements.id.value='';
+        if (place) {for (const key of ['id','name','rate','category','color']) {target.elements[key].value=place[key];}}
+        document.getElementById('workplace-title').textContent=place?text.edit_workplace:text.new_workplace;
+        document.getElementById('workplace-error').classList.add('d-none');
+        document.getElementById('workplace-dialog').showModal();
+        target.elements.name.focus();
     }
     /** Renders one row per period with EFO/Számla column groups and completed / total values, including planned work. */
     function summaryReport(target,rows) {
@@ -105,9 +95,25 @@ function initialize() {
         }
         container.replaceChildren(table);
     }
-    /** Reloads reports/calendar and current-Budapest-month cards; minute refreshes also advance completion and month boundaries. */
+    /** Reloads filtered reports/cards; workplace reports and exports remain empty until one workplace is selected. */
     async function refresh() {
         if (!document.getElementById('shift-totals')) {return;}
+        const requiresPlace=root.dataset.tab==='workplaces', selected=document.getElementById('filter-workplace')?.value;
+        if (requiresPlace) {
+            document.getElementById('workplace-prompt').classList.toggle('d-none',!!selected);
+            document.getElementById('workplace-reports').classList.toggle('d-none',!selected);
+            document.getElementById('workplace-edit').disabled=!selected;
+            for (const format of ['xlsx','csv']) {
+                const link=document.getElementById(`export-${format}`);
+                link.classList.toggle('disabled',!selected);link.setAttribute('aria-disabled',String(!selected));
+                if (!selected) {link.removeAttribute('href');}
+            }
+            if (!selected) {
+                document.getElementById('shift-totals').replaceChildren();
+                for (const id of ['report-workplaces','report-workplace_years']) {document.getElementById(id).replaceChildren();}
+                return;
+            }
+        }
         try {
             const params=filters(), response=await fetch(`${root.dataset.dataUrl}?${params}`);
             if (!response.ok) {throw new Error(`HTTP ${response.status}`);}
@@ -127,7 +133,7 @@ function initialize() {
                 const detail=document.createElement('div'); detail.textContent=`${sum.count} ${text.count} · ${hours(sum.seconds)} ${text.hours}`;
                 box.append(heading,amount,detail); card.append(box); totals.append(card);
             }
-            summaryReport('report-months',data.summary.months); summaryReport('report-years',data.summary.years); report('report-workplaces',data.groups.workplaces); report('report-workplace_years',data.groups.workplace_years);
+            summaryReport('report-months',data.summary.months); summaryReport('report-years',data.summary.years); summaryReport('report-workplaces',data.summary.months); summaryReport('report-workplace_years',data.summary.years);
             if (calendar) { calendar.getEventSources().forEach(source=>source.remove()); calendar.addEventSource(records); }
             for (const format of ['xlsx','csv']) {document.getElementById(`export-${format}`).href=`${root.dataset[`${format}Url`]}?${params}`;}
             document.getElementById('shift-error').classList.add('d-none');
@@ -174,8 +180,18 @@ function initialize() {
         try {await send(root.dataset.deleteUrl,{id:form.elements.id.value}); dialog.close(); await refresh();} catch(e){error(e.message,'shift-editor-error');}
     });
     document.getElementById('workplace-form')?.addEventListener('submit',async event=>{
-        event.preventDefault(); try {places=await send(root.dataset.workplaceUrl,Object.fromEntries(new FormData(event.target))); event.target.reset(); populatePlaces(); await refresh();} catch(e){error(e.message);}
+        event.preventDefault(); const button=event.submitter; button.disabled=true;
+        try {
+            const data=Object.fromEntries(new FormData(event.target));
+            places=await send(root.dataset.workplaceUrl,data);populatePlaces();
+            const saved=places.find(place=>data.id?String(place.id)===data.id:place.name===data.name.trim());
+            if (saved) {document.getElementById('filter-workplace').value=saved.id;}
+            document.getElementById('workplace-dialog').close();await refresh();
+        } catch(e){error(e.message,'workplace-error');} finally {button.disabled=false;}
     });
+    document.getElementById('workplace-new')?.addEventListener('click',()=>editWorkplace());
+    document.getElementById('workplace-edit')?.addEventListener('click',()=>editWorkplace(places.find(place=>String(place.id)===document.getElementById('filter-workplace').value)));
+    document.getElementById('workplace-close')?.addEventListener('click',()=>document.getElementById('workplace-dialog').close());
     for (const key of ['from','to','workplace','category','state']) {document.getElementById(`filter-${key}`)?.addEventListener('change',refresh);}
     document.getElementById('filter-reset')?.addEventListener('click',()=>{for (const key of ['from','to','workplace','category','state']) {document.getElementById(`filter-${key}`).value='';} refresh();});
     const calendarElement=document.getElementById('shift-calendar');

@@ -68,3 +68,6 @@ shift.flag.missing_category: Hiányzó EFO/Számla típus
 shift.flag.missing_or_invalid_time: Hiányzó vagy hibás időpont
 shift.flag.missing_rate: Hiányzó vagy nem egész forintösszegű órabér
 shift.flag.missing_shift: Nincs kapcsolódó munkaidő-bejegyzés
+
+shift.select_workplace: Válassz munkahelyet a kimutatáshoz
+shift.edit_workplace: Munkahely szerkesztése
