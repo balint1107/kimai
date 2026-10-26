@@ -17,7 +17,7 @@
     "dev": "encore dev",
     "watch": "encore dev --watch",
     "lint": "eslint assets/js/",
-    "lint:shifts": "eslint assets/shifts.js",
+    "lint:shifts": "eslint assets/shifts.js assets/shifts-calendar.js",
     "build": "encore production"
   },
   "browserslist": [

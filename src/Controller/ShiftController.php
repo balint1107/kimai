@@ -14,6 +14,7 @@ use App\Entity\ShiftImportItem;
 use App\Entity\Timesheet;
 use App\ShiftAccounting\ShiftReport;
 use App\ShiftAccounting\ShiftService;
+use App\ShiftAccounting\TimeOffService;
 use App\ShiftAccounting\WorkbookImport;
 use App\Timesheet\TimesheetService;
 use App\Utils\PageSetup;
@@ -31,11 +32,12 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 #[IsGranted('IS_AUTHENTICATED_FULLY')]
 final class ShiftController extends AbstractController
 {
-    /** Injects persistence, shift/import/report services and $translator for safe localized errors. */
+    /** Injects persistence, shift/import/report/time-off services and $translator for safe localized errors. */
     public function __construct(
         private EntityManagerInterface $em,
         private ShiftService $shifts,
         private ShiftReport $reports,
+        private TimeOffService $timeOff,
         private WorkbookImport $imports,
         private TimesheetService $timesheets,
         private TranslatorInterface $translator,
@@ -71,7 +73,7 @@ final class ShiftController extends AbstractController
         ]);
     }
 
-    /** Returns complete owner-scoped records, flat reports and grouped completed/total summaries filtered by $request. */
+    /** Returns filtered owner-scoped shifts/reports plus unfiltered personal holidays for the calendar. */
     #[Route(path: '/data', name: 'shift_data', methods: ['GET'])]
     public function data(Request $request): JsonResponse
     {
@@ -79,7 +81,7 @@ final class ShiftController extends AbstractController
             $records = $this->filtered($request);
             $groups = $this->reports->build($records);
 
-            return $this->json(['events' => array_map($this->shifts->record(...), $records), 'groups' => $groups, 'summary' => ['months' => $this->reports->summary($groups['months']), 'years' => $this->reports->summary($groups['years'])], 'places' => $this->shifts->workplaces()]);
+            return $this->json(['events' => array_map($this->shifts->record(...), $records), 'holidays' => $this->timeOff->events($this->getUser()), 'groups' => $groups, 'summary' => ['months' => $this->reports->summary($groups['months']), 'years' => $this->reports->summary($groups['years'])], 'places' => $this->shifts->workplaces()]);
         } catch (\InvalidArgumentException $e) {
             return $this->error($e);
         }
@@ -135,6 +137,32 @@ final class ShiftController extends AbstractController
         $this->timesheets->deleteTimesheet($shift);
 
         return $this->json(['deleted' => true]);
+    }
+
+    /** Saves owner-scoped whole/partial-day time off from JSON $request; earnings remain unchanged. */
+    #[Route(path: '/time-off/save', name: 'shift_time_off_save', methods: ['POST'])]
+    public function saveTimeOff(Request $request): JsonResponse
+    {
+        $this->csrf($request);
+        try {
+            return $this->json($this->timeOff->record($this->timeOff->save($this->getUser(), $request->toArray())));
+        } catch (\InvalidArgumentException $e) {
+            return $this->error($e);
+        }
+    }
+
+    /** Deletes a personal absence identified by JSON $request only for the authenticated owner. */
+    #[Route(path: '/time-off/delete', name: 'shift_time_off_delete', methods: ['POST'])]
+    public function deleteTimeOff(Request $request): JsonResponse
+    {
+        $this->csrf($request);
+        try {
+            $this->timeOff->delete($this->getUser(), (int) ($request->toArray()['id'] ?? 0));
+
+            return $this->json(['deleted' => true]);
+        } catch (\InvalidArgumentException $e) {
+            return $this->error($e);
+        }
     }
 
     /** Saves workplace defaults from JSON $request without changing existing shift rates. */

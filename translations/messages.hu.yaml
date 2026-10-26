@@ -71,3 +71,13 @@ shift.flag.missing_shift: Nincs kapcsolódó munkaidő-bejegyzés
 
 shift.select_workplace: Válassz munkahelyet a kimutatáshoz
 shift.edit_workplace: Munkahely szerkesztése
+
+shift.time_off: Szabadság
+shift.new_time_off: Új szabadság
+shift.all_day: Egész nap
+shift.time_off_help: Egész napnál a záró dátum is a szabadság része. A szabadság nem módosítja a munkaidőt és a bevételt.
+shift.weekend: Hétvége
+shift.public_holiday: Ünnepnap
+shift.workday: Áthelyezett munkanap
+shift.rest_day: Áthelyezett pihenőnap
+shift.swap_notice: Erre az évre az áthelyezett munkanapok még nincsenek ellenőrizve. Az ünnepnapok és hétvégék jelölése elérhető.

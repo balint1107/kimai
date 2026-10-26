@@ -7,7 +7,7 @@ Create protected `deploy/.env` containing APP_SECRET, DB_PASSWORD, DB_ROOT_PASSW
 ADMIN_EMAIL and ADMIN_PASSWORD. Use long random hexadecimal secrets. Never track it.
 
 Before building, run `bash deploy/package-source.sh` to package the public fork source
-as `deploy/source.tar.gz`, excluding Git state, secrets, dependencies and runtime state.
+as `deploy/source.tar.gz`, excluding Git state, secrets, dependencies, runtime state and macOS resource metadata.
 The image serves it as `/kimai/fork-source.tar.gz` to provide the exact deployed source.
 Keep this archive ignored. Build with `docker compose -f deploy/compose.yaml build`.
 
@@ -41,7 +41,7 @@ visual edit. Documentation-only changes need no image rebuild.
 
 Sync only changed source files and refresh the public source archive before building.
 Keep Docker's layer cache: frontend dependencies install before copying assets, so
-CSS/JavaScript edits reuse them. PHP/Twig-only changes reuse the entire frontend
+CSS/JavaScript and lint/build configuration edits reuse them. PHP/Twig-only changes reuse the entire frontend
 stage. Recreate only the app (`docker compose -f deploy/compose.yaml up -d --no-deps app`)
 when database configuration is unchanged. Keep deployment images reproducible; use
 the backup procedure below before imports, upgrades or database changes. Report the

@@ -1,12 +1,13 @@
 {% extends 'shifts/layout.html.twig' %}
 {% block accounting %}
 {% set texts = {} %}
-{% for key in ['completed','planned','in_progress','cancelled','count','hours','amount','period','category','state','workplace','saved','delete_confirm','overlap','invalid_time','review','save','new_shift','total_amount','all','select_workplace','new_workplace','edit_workplace'] %}
+{% for key in ['completed','planned','in_progress','cancelled','count','hours','amount','period','category','state','workplace','saved','delete_confirm','overlap','invalid_time','review','save','new_shift','total_amount','all','select_workplace','new_workplace','edit_workplace','time_off'] %}
     {% set texts = texts|merge({(key): ('shift.' ~ key)|trans}) %}
 {% endfor %}
 <div id="shift-root" data-tab="{{ tab }}" data-token="{{ csrf_token('shifts') }}" data-texts="{{ texts|json_encode|e('html_attr') }}" data-places="{{ places|json_encode|e('html_attr') }}"
      data-data-url="{{ path('shift_data') }}" data-save-url="{{ path('shift_save') }}" data-delete-url="{{ path('shift_delete') }}" data-workplace-url="{{ path('shift_workplace') }}"
      data-xlsx-url="{{ path('shift_export', {format:'xlsx'}) }}" data-csv-url="{{ path('shift_export', {format:'csv'}) }}"
+     data-time-off-save-url="{{ path('shift_time_off_save') }}" data-time-off-delete-url="{{ path('shift_time_off_delete') }}"
      data-review="{{ review|default(null)|json_encode|e('html_attr') }}">
     <div id="shift-error" class="alert alert-danger d-none" role="alert"></div>
     {% if tab in ['calendar','summary','workplaces'] %}
@@ -22,7 +23,22 @@
     <div class="row g-2 mb-3" id="shift-totals" aria-live="polite"></div>
     {% endif %}
     {% if tab == 'calendar' %}
-        <div class="d-flex justify-content-between align-items-end mb-2 gap-2"><label>{{ 'shift.jump_date'|trans }}<input class="form-control" type="date" id="calendar-date"></label><button class="btn btn-primary" id="shift-new">{{ 'shift.new_shift'|trans }}</button></div>
+        <div class="d-flex flex-wrap justify-content-between align-items-end mb-2 gap-2"><label>{{ 'shift.jump_date'|trans }}<input class="form-control" type="date" id="calendar-date"></label><button class="btn btn-outline-primary" id="time-off-new">{{ 'shift.new_time_off'|trans }}</button><button class="btn btn-primary" id="shift-new">{{ 'shift.new_shift'|trans }}</button></div>
+        <div class="d-flex flex-wrap gap-2 mb-2 shift-calendar-legend">{% for marker in ['weekend','public_holiday','workday','rest_day','time_off'] %}<span class="badge shift-marker-{{ marker }}">{{ ('shift.' ~ marker)|trans }}</span>{% endfor %}</div>
+        <p id="calendar-swap-notice" class="text-muted d-none">{{ 'shift.swap_notice'|trans }}</p>
+        <dialog id="time-off-dialog" class="shift-dialog" aria-labelledby="time-off-title">
+            <div class="d-flex justify-content-between align-items-center mb-3"><h2 id="time-off-title">{{ 'shift.time_off'|trans }}</h2><button type="button" id="time-off-close" class="btn-close" aria-label="{{ 'close'|trans }}"></button></div>
+            <div id="time-off-error" class="alert alert-danger d-none" role="alert"></div>
+            <form id="time-off-form" class="row g-3">
+                <input type="hidden" name="id">
+                <label class="col-12"><input type="checkbox" name="all_day" checked> {{ 'shift.all_day'|trans }}</label>
+                <label class="col-sm-6">{{ 'shift.from'|trans }}<input name="begin" type="date" class="form-control" required></label>
+                <label class="col-sm-6">{{ 'shift.to'|trans }}<input name="end" type="date" class="form-control" required></label>
+                <p class="col-12 text-muted mb-0">{{ 'shift.time_off_help'|trans }}</p>
+                <label class="col-12">{{ 'shift.note'|trans }}<input name="note" class="form-control" maxlength="200"></label>
+                <div class="col-12 d-flex gap-2"><button class="btn btn-primary" type="submit">{{ 'shift.save'|trans }}</button><button id="time-off-delete" class="btn btn-danger d-none" type="button">{{ 'delete'|trans }}</button></div>
+            </form>
+        </dialog>
         <div class="card"><div class="card-body"><div id="shift-calendar"></div></div></div>
     {% elseif tab == 'summary' %}
         <p class="text-muted">{{ 'shift.completed_total'|trans }}. {{ 'shift.complete_only'|trans }} <a href="{{ path('shift_calendar', {tab:'imports'}) }}">{{ 'shift.imports'|trans }}</a></p>

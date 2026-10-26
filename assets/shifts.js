@@ -1,4 +1,5 @@
 import './shifts.scss';
+import {calendarDay} from './shifts-calendar';
 import {Calendar, createPlugin} from '@fullcalendar/core';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
@@ -22,7 +23,7 @@ function initialize() {
     const root=document.getElementById('shift-root');
     if (!root) {return;}
     const text=JSON.parse(root.dataset.texts), form=document.getElementById('shift-form'), dialog=document.getElementById('shift-dialog');
-    let places=JSON.parse(root.dataset.places), records=[], calendar=null;
+    let places=JSON.parse(root.dataset.places), records=[], absences=[], calendar=null;
     const money=new Intl.NumberFormat('hu-HU',{style:'currency',currency:'HUF',maximumFractionDigits:0});
     /** Formats seconds as a duration without wrapping after 24 hours. */
     const hours=(seconds)=>`${Math.floor(Math.round(seconds/60)/60)}:${String(Math.round(seconds/60)%60).padStart(2,'0')}`;
@@ -83,6 +84,7 @@ function initialize() {
         const body=table.createTBody();
         for (const row of rows) {
             const tr=body.insertRow();tr.insertCell().textContent=row.period;
+            if (row.period===DateTime.now().setZone('Europe/Budapest').toFormat('yyyy-MM')) {tr.classList.add('shift-current-month');tr.setAttribute('aria-current','date');}
             for (const category of ['efo','invoice']) {
                 for (const key of ['count','seconds','amount']) {
                     const cell=tr.insertCell(), progress=row[category];
@@ -118,7 +120,7 @@ function initialize() {
             const params=filters(), response=await fetch(`${root.dataset.dataUrl}?${params}`);
             if (!response.ok) {throw new Error(`HTTP ${response.status}`);}
             const data=await response.json(); if (data.error) {throw new Error(data.error);}
-            records=data.events; places=data.places; populatePlaces();
+            records=data.events; absences=data.holidays || []; places=data.places; populatePlaces();
             const currentMonth=DateTime.now().setZone('Europe/Budapest');
             const monthKey=currentMonth.toFormat('yyyy-MM');
             const monthLabel=currentMonth.setLocale('hu').toFormat('yyyy. LLLL');
@@ -134,7 +136,7 @@ function initialize() {
                 box.append(heading,amount,detail); card.append(box); totals.append(card);
             }
             summaryReport('report-months',data.summary.months); summaryReport('report-years',data.summary.years); summaryReport('report-workplaces',data.summary.months); summaryReport('report-workplace_years',data.summary.years);
-            if (calendar) { calendar.getEventSources().forEach(source=>source.remove()); calendar.addEventSource(records); }
+            if (calendar) { calendar.getEventSources().forEach(source=>source.remove()); calendar.addEventSource([...records,...absences]); }
             for (const format of ['xlsx','csv']) {document.getElementById(`export-${format}`).href=`${root.dataset[`${format}Url`]}?${params}`;}
             document.getElementById('shift-error').classList.add('d-none');
         } catch (e) { error(e.message); }
@@ -167,6 +169,32 @@ function initialize() {
         document.getElementById('shift-editor-title').textContent=record.review_item?`${text.review} · ${record.date || ''}`:text.new_shift;
         preview(); dialog.showModal();
     }
+    /** Opens optional absence event for editing; all-day exclusive ends become inclusive dates in the form. */
+    function editTimeOff(event=null) {
+        const target=document.getElementById('time-off-form');target.reset();
+        target.elements.id.value=event?.absence_id || '';
+        target.elements.all_day.checked=event?.allDay ?? true;
+        const date=calendar?.getDate() || new Date();
+        const begin=event?DateTime.fromISO(event.start,{zone:'Europe/Budapest'}):DateTime.fromJSDate(date,{zone:'Europe/Budapest'}).startOf('day');
+        const end=event?DateTime.fromISO(event.end,{zone:'Europe/Budapest'}):begin.plus({hours:1});
+        target.elements.begin.dataset.value=begin.toFormat("yyyy-MM-dd'T'HH:mm");
+        target.elements.end.dataset.value=(event?.allDay?end.minus({days:1}):end).toFormat("yyyy-MM-dd'T'HH:mm");
+        timeOffFields();target.elements.note.value=event?.title || '';
+        document.getElementById('time-off-delete').classList.toggle('d-none',!event);
+        document.getElementById('time-off-error').classList.add('d-none');
+        document.getElementById('time-off-dialog').showModal();
+    }
+    /** Switches absence date controls without discarding chosen dates; partial-day defaults span one hour. */
+    function timeOffFields() {
+        const target=document.getElementById('time-off-form'),allDay=target.elements.all_day.checked;
+        for (const key of ['begin','end']) {
+            const field=target.elements[key],value=field.dataset.value || field.value;
+            field.type=allDay?'date':'datetime-local';
+            field.value=allDay?value.slice(0,10):value.length===10?`${value}T${key==='begin'?'08:00':'09:00'}`:value;
+        }
+    }
+    /** Classifies FullCalendar Date in Budapest for day backgrounds, headers and accessible tooltips. */
+    function dayMarker(date) {return calendarDay(DateTime.fromJSDate(date,{zone:'Europe/Budapest'}).toISODate());}
     populatePlaces();
     document.getElementById('shift-close').addEventListener('click',()=>dialog.close());
     document.getElementById('shift-new')?.addEventListener('click',()=>edit());
@@ -194,6 +222,24 @@ function initialize() {
     document.getElementById('workplace-close')?.addEventListener('click',()=>document.getElementById('workplace-dialog').close());
     for (const key of ['from','to','workplace','category','state']) {document.getElementById(`filter-${key}`)?.addEventListener('change',refresh);}
     document.getElementById('filter-reset')?.addEventListener('click',()=>{for (const key of ['from','to','workplace','category','state']) {document.getElementById(`filter-${key}`).value='';} refresh();});
+    const timeOffForm=document.getElementById('time-off-form');
+    document.getElementById('time-off-new')?.addEventListener('click',()=>editTimeOff());
+    document.getElementById('time-off-close')?.addEventListener('click',()=>document.getElementById('time-off-dialog').close());
+    timeOffForm?.elements.all_day.addEventListener('change',()=>{
+        for (const key of ['begin','end']) {timeOffForm.elements[key].dataset.value=timeOffForm.elements[key].value;}
+        timeOffFields();
+    });
+    timeOffForm?.addEventListener('submit',async event=>{
+        event.preventDefault();event.submitter.disabled=true;
+        try {
+            const data=Object.fromEntries(new FormData(timeOffForm));data.all_day=timeOffForm.elements.all_day.checked;
+            await send(root.dataset.timeOffSaveUrl,data);document.getElementById('time-off-dialog').close();await refresh();
+        } catch(e){error(e.message,'time-off-error');} finally {event.submitter.disabled=false;}
+    });
+    document.getElementById('time-off-delete')?.addEventListener('click',async()=>{
+        if (!window.confirm(text.delete_confirm)) {return;}
+        try {await send(root.dataset.timeOffDeleteUrl,{id:timeOffForm.elements.id.value});document.getElementById('time-off-dialog').close();await refresh();} catch(e){error(e.message,'time-off-error');}
+    });
     const calendarElement=document.getElementById('shift-calendar');
     if (calendarElement) {
         calendar=new Calendar(calendarElement,{
@@ -203,10 +249,15 @@ function initialize() {
             eventTimeFormat:{hour:'2-digit',minute:'2-digit',hour12:false},slotLabelFormat:{hour:'2-digit',minute:'2-digit',hour12:false},
             dateClick:info=>edit({start:info.dateStr.length===10?`${info.dateStr}T08:00`:info.dateStr}),
             select:info=>{if(info.view.type!=='dayGridMonth'){edit({start:info.startStr,end:info.endStr});}},
-            eventClick:info=>edit(records.find(r=>String(r.id)===info.event.id)),
+            eventClick:info=>info.event.extendedProps.kind==='time_off'?editTimeOff(absences.find(r=>r.id===info.event.id)):edit(records.find(r=>String(r.id)===info.event.id)),
+            dayCellClassNames:info=>[`shift-day-${dayMarker(info.date).kind}`],
+            dayHeaderClassNames:info=>[`shift-day-${dayMarker(info.date).kind}`],
+            dayCellDidMount:info=>{const marker=dayMarker(info.date);if(marker.label){info.el.title=marker.label;}},
+            dayHeaderDidMount:info=>{const marker=dayMarker(info.date);if(marker.label){info.el.title=marker.label;}},
+            datesSet:info=>{document.getElementById('calendar-swap-notice').classList.toggle('d-none',dayMarker(info.start).known&&dayMarker(new Date(info.end.valueOf()-1)).known);},
             eventClassNames:info=>[`state-${info.event.extendedProps.state}`],
-            eventContent:info=>{const label=document.createElement('div');label.textContent=`${info.timeText} ${info.event.title} · ${text[info.event.extendedProps.state]}`;return {domNodes:[label]};},
-            eventDidMount:info=>{info.el.title=`${info.event.title} · ${text[info.event.extendedProps.state]} · ${money.format(info.event.extendedProps.amount)}`;},
+            eventContent:info=>{const label=document.createElement('div');label.textContent=info.event.extendedProps.kind==='time_off'?`${info.timeText} ${text.time_off}${info.event.title?' · '+info.event.title:''}`:`${info.timeText} ${info.event.title} · ${text[info.event.extendedProps.state]}`;return {domNodes:[label]};},
+            eventDidMount:info=>{info.el.title=info.event.extendedProps.kind==='time_off'?`${text.time_off} · ${info.event.title}`:`${info.event.title} · ${text[info.event.extendedProps.state]} · ${money.format(info.event.extendedProps.amount)}`;},
             eventDrop:move,eventResize:move,
         });
         calendar.render();

@@ -41,6 +41,32 @@ screens. The Időszak header and first-column cells stay pinned to the left with
 opaque backgrounds while the remaining columns scroll. Scroll regions support
 keyboard focus as well as touch/trackpad scrolling.
 
+The current Budapest month is highlighted green in Summary and Workplace monthly
+tables, including the sticky period cell. Other periods keep their normal background.
+
+## Calendar day markers and personal holidays
+
+The calendar uses gray for weekends, red for Hungarian public holidays, amber for
+substitute workdays, blue for substitute rest days and purple for personal time off.
+A text legend and date tooltips explain each color. Substitute working Saturdays
+use the workday marker rather than weekend shading. Public holidays use fixed dates
+and Gregorian Easter offsets. Verified annual swaps cover 2023–2026; other years show
+a notice and no guessed swaps. Refresh the annual data in `assets/shifts-calendar.js`
+when a new official schedule is published.
+
+Sources: [Labour Code, section 102](https://net.jogtar.hu/jogszabaly?docid=a1200001.tv),
+[2024 swaps](https://njt.jog.gov.hu/jogszabaly/2023-15-20-8P),
+[2025 schedule](https://nmhh.hu/cikk/184586/Szamatadasi_idoablakok), and
+[2026 swaps](https://net.jogtar.hu/jogszabaly?docid=a2500010.ngm).
+
+Új szabadság creates whole-day ranges (inclusive end date) or partial days in Budapest
+local time, with an optional note. Click a purple event to edit/delete it. Time off
+remains visible independently of shift filters; it never creates timesheets, blocks
+shift entry, changes rates or contributes to hours/counts/earnings/exports. It is stored
+in owner-scoped `shift_time_off` rows, included in ordinary database backups. The API
+uses CSRF-protected `/shifts/time-off/save` and `/shifts/time-off/delete`; IDs are
+owner-checked, dates validated and whole-day exclusive ends derived server-side.
+
 ## Workplace reports and defaults
 
 Munkahelyek requires a single workplace selection; there is no All option. Until

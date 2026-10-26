@@ -71,3 +71,13 @@ shift.flag.missing_shift: No linked shift
 
 shift.select_workplace: Select a workplace to view its report
 shift.edit_workplace: Edit workplace
+
+shift.time_off: Time off
+shift.new_time_off: New time off
+shift.all_day: All day
+shift.time_off_help: The end date is included for all-day time off. Time off does not change working hours or earnings.
+shift.weekend: Weekend
+shift.public_holiday: Public holiday
+shift.workday: Substitute workday
+shift.rest_day: Substitute rest day
+shift.swap_notice: Workday swaps have not been verified for this year. Public holidays and weekends are still marked.
