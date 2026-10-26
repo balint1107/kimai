@@ -13,7 +13,7 @@ use App\Entity\ShiftTimeOff;
 use App\Entity\User;
 use Doctrine\ORM\EntityManagerInterface;
 
-/** Persists owner-scoped calendar absences independently of shift accounting. */
+/** Persists owner-scoped calendar holidays and general events independently of shift accounting. */
 final class TimeOffService
 {
     /** Uses $em for absence persistence; callers enforce session authentication and CSRF. */
@@ -21,7 +21,7 @@ final class TimeOffService
     {
     }
 
-    /** Returns only $owner's absences as FullCalendar events, regardless of earnings filters.
+    /** Returns only $owner's holidays/general events as FullCalendar events, regardless of earnings filters.
      * @return list<array<string, mixed>>
      */
     public function events(User $owner): array
@@ -30,10 +30,19 @@ final class TimeOffService
     }
 
     /** Saves $data for $owner; dates are Budapest-local, all-day end dates inclusive; returns the saved absence.
-     * @param array<string, mixed> $data id optional; begin/end date or minute datetime strings; all_day boolean; note optional
+     * @param array<string, mixed> $data id optional; begin/end date or minute datetime strings; all_day boolean; note optional; kind time_off/event; title required for event; color optional #RRGGBB
      */
     public function save(User $owner, array $data): ShiftTimeOff
     {
+        $kind = $data['kind'] ?? 'time_off';
+        $title = $data['title'] ?? '';
+        $color = $data['color'] ?? null;
+        if ($color !== null && (!\is_string($color) || preg_match('/^#[0-9a-f]{6}$/iD', $color) !== 1)) {
+            throw new \InvalidArgumentException('shift.invalid_event');
+        }
+        if (!\is_string($kind) || !\in_array($kind, ['time_off', 'event'], true) || !\is_string($title) || mb_strlen($title) > 150 || ($kind === 'event' && trim($title) === '')) {
+            throw new \InvalidArgumentException('shift.invalid_event');
+        }
         $allDay = ($data['all_day'] ?? false) === true;
         $format = $allDay ? 'Y-m-d' : 'Y-m-d\TH:i';
         $zone = new \DateTimeZone('Europe/Budapest');
@@ -61,6 +70,12 @@ final class TimeOffService
         }
         $utc = new \DateTimeZone('UTC');
         $absence = $id === false ? new ShiftTimeOff($owner, $dates['begin'], $dates['end'], $allDay) : $this->owned($owner, $id);
+        if ($id !== false && $absence->kind !== $kind) {
+            throw new \InvalidArgumentException('shift.invalid_event');
+        }
+        $absence->kind = $kind;
+        $absence->title = trim($title);
+        $absence->color = $color ?? $absence->color;
         $absence->begin = $dates['begin']->setTimezone($utc);
         $absence->end = $dates['end']->setTimezone($utc);
         $absence->allDay = $allDay;
@@ -89,7 +104,7 @@ final class TimeOffService
         return $absence;
     }
 
-    /** Converts $absence into a non-draggable purple event; all-day end is exclusive per FullCalendar.
+    /** Converts $absence into a non-draggable event with saved color or type default; all-day end is exclusive per FullCalendar.
      * @return array<string, mixed>
      */
     public function record(ShiftTimeOff $absence): array
@@ -98,10 +113,10 @@ final class TimeOffService
         $format = $absence->allDay ? 'Y-m-d' : \DateTimeInterface::ATOM;
 
         return [
-            'id' => 'timeoff-' . $absence->id, 'absence_id' => $absence->id, 'kind' => 'time_off',
-            'title' => $absence->note, 'start' => $absence->begin->setTimezone($zone)->format($format),
+            'id' => ($absence->kind === 'event' ? 'event-' : 'timeoff-') . $absence->id, 'absence_id' => $absence->id, 'kind' => $absence->kind,
+            'title' => $absence->title !== '' ? $absence->title : $absence->note, 'event_title' => $absence->title, 'note' => $absence->note, 'start' => $absence->begin->setTimezone($zone)->format($format),
             'end' => $absence->end->setTimezone($zone)->format($format), 'allDay' => $absence->allDay,
-            'editable' => false, 'color' => '#7952b3', 'classNames' => ['shift-time-off'],
+            'editable' => false, 'color' => $absence->color ?? ($absence->kind === 'event' ? '#0f766e' : '#7952b3'), 'classNames' => [$absence->kind === 'event' ? 'shift-calendar-event' : 'shift-time-off'],
         ];
     }
 }

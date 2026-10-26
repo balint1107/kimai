@@ -81,3 +81,12 @@ shift.public_holiday: Ünnepnap
 shift.workday: Áthelyezett munkanap
 shift.rest_day: Áthelyezett pihenőnap
 shift.swap_notice: Erre az évre az áthelyezett munkanapok még nincsenek ellenőrizve. Az ünnepnapok és hétvégék jelölése elérhető.
+
+shift.new_event: Új esemény
+shift.event_type: Esemény típusa
+shift.shift_type: Helyettesítés
+shift.event: Általános esemény
+shift.event_title: Esemény neve
+shift.invalid_event: Adj meg érvényes eseménytípust és eseménynevet. A mentett esemény típusa nem módosítható.
+shift.calendar_event_help: Egész napnál a záró dátum is az esemény része. Ezek az események nem számítanak bele a munkaidőbe és a bevételbe.
+shift.delete_event_confirm: Biztosan törlöd ezt az eseményt?

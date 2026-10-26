@@ -73,7 +73,7 @@ final class ShiftController extends AbstractController
         ]);
     }
 
-    /** Returns filtered owner-scoped shifts/reports plus unfiltered personal holidays for the calendar. */
+    /** Returns filtered owner-scoped shifts/reports plus unfiltered holidays/general events for the calendar. */
     #[Route(path: '/data', name: 'shift_data', methods: ['GET'])]
     public function data(Request $request): JsonResponse
     {
@@ -139,7 +139,7 @@ final class ShiftController extends AbstractController
         return $this->json(['deleted' => true]);
     }
 
-    /** Saves owner-scoped whole/partial-day time off from JSON $request; earnings remain unchanged. */
+    /** Saves owner-scoped whole/partial-day holidays or general events from JSON $request; earnings remain unchanged. */
     #[Route(path: '/time-off/save', name: 'shift_time_off_save', methods: ['POST'])]
     public function saveTimeOff(Request $request): JsonResponse
     {
@@ -151,7 +151,7 @@ final class ShiftController extends AbstractController
         }
     }
 
-    /** Deletes a personal absence identified by JSON $request only for the authenticated owner. */
+    /** Deletes a calendar-only entry identified by JSON $request only for the authenticated owner. */
     #[Route(path: '/time-off/delete', name: 'shift_time_off_delete', methods: ['POST'])]
     public function deleteTimeOff(Request $request): JsonResponse
     {

@@ -77,12 +77,25 @@ Sources: [Labour Code, section 102](https://net.jogtar.hu/jogszabaly?docid=a1200
 [2025 schedule](https://nmhh.hu/cikk/184586/Szamatadasi_idoablakok), and
 [2026 swaps](https://net.jogtar.hu/jogszabaly?docid=a2500010.ngm).
 
-Új szabadság creates whole-day ranges (inclusive end date) or partial days in Budapest
-local time, with an optional note. Click a purple event to edit/delete it. Time off
+Új esemény opens one editor with Helyettesítés, Szabadság and Általános esemény
+choices. New entries can switch type while retaining their chosen dates. Saved
+entries/import-review drafts keep their type; the selector is locked to avoid
+converting accounting records into unrelated calendar entries. Shift fields include
+workplace, whole-HUF rate, EFO/Számla and cancellation with an amount preview. Holiday and general-event fields include a required name, color picker, optional note
+and inclusive all-day date ranges or partial days. Holiday names default to Szabadság;
+existing entries without a saved name retain their notes. Colors persist per entry,
+with purple/teal defaults for existing holidays/general events.
+Hidden fields are disabled, so their validation and accounting values cannot leak
+into another type. Click an event to edit/delete it in the same dialog.
+Purple marks holidays; teal marks general events. Time off
 remains visible independently of shift filters; it never creates timesheets, blocks
-shift entry, changes rates or contributes to hours/counts/earnings/exports. It is stored
+shift entry, changes rates or contributes to hours/counts/earnings/exports. Both calendar-only types are stored
 in owner-scoped `shift_time_off` rows, included in ordinary database backups. The API
-uses CSRF-protected `/shifts/time-off/save` and `/shifts/time-off/delete`; IDs are
+retains the CSRF-protected `/shifts/time-off/save` and `/shifts/time-off/delete`
+endpoints for compatibility. `kind` is `time_off` (default) or `event`; general events
+require `title` (150 characters). Holidays also save an optional API title (the UI
+requires one); both allow `note` (200 characters) and optional `color` (#RRGGBB).
+`event_title` exposes the explicit name independently of the legacy title/note fallback. IDs are
 owner-checked, dates validated and whole-day exclusive ends derived server-side.
 
 ## Workplace reports and defaults

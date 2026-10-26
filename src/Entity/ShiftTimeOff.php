@@ -11,7 +11,7 @@ namespace App\Entity;
 
 use Doctrine\ORM\Mapping as ORM;
 
-/** Private calendar-only time off; never a billable timesheet. Stored instants use UTC. */
+/** Private calendar-only holiday or general event; never a billable timesheet. Stored instants use UTC. */
 #[ORM\Entity]
 #[ORM\Table(name: 'shift_time_off')]
 class ShiftTimeOff
@@ -21,7 +21,16 @@ class ShiftTimeOff
     #[ORM\Column(type: 'integer')]
     public ?int $id = null;
 
-    /** Creates time off owned by $owner with UTC $begin/$end (exclusive), $allDay rendering and optional $note. */
+    #[ORM\Column(type: 'string', length: 20, options: ['default' => 'time_off'])]
+    public string $kind = 'time_off';
+
+    #[ORM\Column(type: 'string', length: 150, options: ['default' => ''])]
+    public string $title = '';
+
+    #[ORM\Column(type: 'string', length: 7, nullable: true)]
+    public ?string $color = null;
+
+    /** Creates a default holiday owned by $owner with UTC $begin/$end (exclusive), $allDay rendering and optional $note. */
     public function __construct(
         #[ORM\ManyToOne(targetEntity: User::class)]
         #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]

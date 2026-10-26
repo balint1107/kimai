@@ -156,63 +156,74 @@ function initialize() {
     }
     /** Recomputes the editor preview in Budapest, including DST elapsed time and overlap warnings. */
     function preview() {
+        if (form.elements.event_type.value!=='shift') {return;}
         const begin=DateTime.fromISO(form.elements.begin.value,{zone:'Europe/Budapest'}), end=DateTime.fromISO(form.elements.end.value,{zone:'Europe/Budapest'});
         const seconds=end.diff(begin,'seconds').seconds;
         document.getElementById('shift-preview').textContent=Number.isFinite(seconds)&&seconds>0 ? `${hours(seconds)} · ${money.format(seconds/3600*Number(form.elements.rate.value))}` : text.invalid_time;
         const overlap=records.some(r=>String(r.id)!==form.elements.id.value&&!r.cancelled&&DateTime.fromISO(r.start)<end&&DateTime.fromISO(r.end)>begin);
         document.getElementById('shift-overlap').classList.toggle('d-none',!overlap);
     }
-    /** Opens an existing record or a new interval, with optional import-review provenance. */
-    function edit(record={}) {
-        form.reset(); populatePlaces();
-        for (const key of ['id','review_item','workplace','rate','category','note']) {if (record[key]!==undefined&&record[key]!==null) {form.elements[key].value=record[key];}}
-        form.elements.begin.value=wall(record.start || record.begin || (record.date ? `${record.date}T08:00` : '')) || DateTime.now().setZone('Europe/Budapest').startOf('hour').toFormat("yyyy-MM-dd'T'HH:mm");
-        form.elements.end.value=wall(record.end) || DateTime.fromISO(form.elements.begin.value,{zone:'Europe/Budapest'}).plus({hours:1}).toFormat("yyyy-MM-dd'T'HH:mm");
-        if (record.review_item && !record.id && !record.begin) { form.elements.begin.value=''; form.elements.end.value=''; }
-        form.elements.cancelled.checked=!!record.cancelled;
-        if (!record.id && record.rate===undefined && places.length) {form.elements.workplace.value=places[0].id; defaults();}
-        document.getElementById('shift-delete').classList.toggle('d-none',!record.id);
-        document.getElementById('shift-editor-error').classList.add('d-none');
-        document.getElementById('shift-editor-title').textContent=record.review_item?`${text.review} · ${record.date || ''}`:text.new_shift;
-        preview(); dialog.showModal();
-    }
-    /** Opens optional absence event for editing; all-day exclusive ends become inclusive dates in the form. */
-    function editTimeOff(event=null) {
-        const target=document.getElementById('time-off-form');target.reset();
-        target.elements.id.value=event?.absence_id || '';
-        target.elements.all_day.checked=event?.allDay ?? true;
-        const date=calendar?.getDate() || new Date();
-        const begin=event?DateTime.fromISO(event.start,{zone:'Europe/Budapest'}):DateTime.fromJSDate(date,{zone:'Europe/Budapest'}).startOf('day');
-        const end=event?DateTime.fromISO(event.end,{zone:'Europe/Budapest'}):begin.plus({hours:1});
-        target.elements.begin.dataset.value=begin.toFormat("yyyy-MM-dd'T'HH:mm");
-        target.elements.end.dataset.value=(event?.allDay?end.minus({days:1}):end).toFormat("yyyy-MM-dd'T'HH:mm");
-        timeOffFields();target.elements.note.value=event?.title || '';
-        document.getElementById('time-off-delete').classList.toggle('d-none',!event);
-        document.getElementById('time-off-error').classList.add('d-none');
-        document.getElementById('time-off-dialog').showModal();
-    }
-    /** Switches absence date controls without discarding chosen dates; partial-day defaults span one hour. */
-    function timeOffFields() {
-        const target=document.getElementById('time-off-form'),allDay=target.elements.all_day.checked;
+    /** Adapts shared dates and enabled/required fields to the selected event type without submitting hidden accounting fields. */
+    function eventLayout() {
+        const kind=form.elements.event_type.value,isShift=kind==='shift',allDay=!isShift&&form.elements.all_day.checked;
+        const fields=document.getElementById('event-shift-fields');fields.disabled=!isShift;fields.classList.toggle('d-none',!isShift);
+        document.getElementById('event-title-field').classList.toggle('d-none',isShift);
+        form.elements.title.disabled=isShift;form.elements.title.required=!isShift;
+        document.getElementById('event-color-field').classList.toggle('d-none',isShift);form.elements.color.disabled=isShift;
+        document.getElementById('event-all-day-field').classList.toggle('d-none',isShift);form.elements.all_day.disabled=isShift;
+        document.getElementById('event-calendar-help').classList.toggle('d-none',isShift);
+        document.getElementById('shift-preview').classList.toggle('d-none',!isShift);
+        document.getElementById('shift-overlap').classList.add('d-none');form.elements.note.maxLength=isShift?2000:200;
         for (const key of ['begin','end']) {
-            const field=target.elements[key],value=field.dataset.value || field.value;
-            field.type=allDay?'date':'datetime-local';
+            const field=form.elements[key],value=field.value;
+            field.type=allDay?'date':'datetime-local';field.step=allDay?'1':'60';
             field.value=allDay?value.slice(0,10):value.length===10?`${value}T${key==='begin'?'08:00':'09:00'}`:value;
         }
+        preview();
+    }
+    /** Opens a shift or calendar-only record in one editor; new entries can select type, saved IDs/review entries keep their type. */
+    function edit(record={}) {
+        form.reset();populatePlaces();
+        const kind=record.kind || 'shift',isShift=kind==='shift';
+        form.elements.event_type.value=kind;form.elements.event_type.disabled=!!(record.id||record.review_item);
+        for (const key of ['begin','end']) {form.elements[key].type='datetime-local';form.elements[key].step='60';}
+        for (const key of ['id','review_item','workplace','rate','category','note']) {if (record[key]!==undefined&&record[key]!==null) {form.elements[key].value=record[key];}}
+        form.elements.id.value=isShift?(record.id || ''):(record.absence_id || '');
+        form.elements.title.value=isShift?'':(record.event_title || (kind==='time_off'?text.time_off:record.title || ''));
+        form.elements.color.value=record.color || (kind==='time_off'?'#7952b3':'#0f766e');
+        if (!isShift) {form.elements.note.value=record.note ?? (kind==='time_off'?record.title || '':'');}
+        form.elements.all_day.checked=!isShift&&!!record.allDay;
+        form.elements.begin.value=wall(record.start || record.begin || (record.date ? `${record.date}T08:00` : '')) || DateTime.now().setZone('Europe/Budapest').startOf('hour').toFormat("yyyy-MM-dd'T'HH:mm");
+        form.elements.end.value=wall(record.end) || DateTime.fromISO(form.elements.begin.value,{zone:'Europe/Budapest'}).plus({hours:1}).toFormat("yyyy-MM-dd'T'HH:mm");
+        if (record.allDay) {form.elements.end.value=DateTime.fromISO(form.elements.end.value,{zone:'Europe/Budapest'}).minus({days:1}).toFormat("yyyy-MM-dd'T'HH:mm");}
+        if (record.review_item && !record.id && !record.begin) {form.elements.begin.value='';form.elements.end.value='';}
+        form.elements.cancelled.checked=!!record.cancelled;
+        if (isShift&&!record.id&&record.rate===undefined&&places.length) {form.elements.workplace.value=places[0].id;defaults();}
+        document.getElementById('shift-delete').classList.toggle('d-none',!record.id);
+        document.getElementById('shift-editor-error').classList.add('d-none');
+        document.getElementById('shift-editor-title').textContent=record.review_item?`${text.review} · ${record.date || ''}`:record.id?(isShift?text.shift_type:kind==='event'?text.event:text.time_off):text.new_event;
+        eventLayout();dialog.showModal();
     }
     /** Classifies FullCalendar Date in Budapest for day backgrounds, headers and accessible tooltips. */
     function dayMarker(date) {return calendarDay(DateTime.fromJSDate(date,{zone:'Europe/Budapest'}).toISODate());}
     populatePlaces();
     document.getElementById('shift-close').addEventListener('click',()=>dialog.close());
     document.getElementById('shift-new')?.addEventListener('click',()=>edit());
+    form.elements.event_type.addEventListener('change',()=>{form.elements.all_day.checked=form.elements.event_type.value==='time_off';form.elements.color.value=form.elements.event_type.value==='time_off'?'#7952b3':'#0f766e';if(form.elements.event_type.value==='time_off'&&!form.elements.title.value){form.elements.title.value=text.time_off;}eventLayout();});
+    form.elements.all_day.addEventListener('change',eventLayout);
     form.addEventListener('input',preview); form.elements.workplace.addEventListener('change',defaults);
     form.addEventListener('submit',async event=>{
         event.preventDefault(); const button=event.submitter; button.disabled=true;
-        try {const data=Object.fromEntries(new FormData(form)); data.cancelled=form.elements.cancelled.checked; await send(root.dataset.saveUrl,data); dialog.close(); await refresh();} catch(e){error(e.message,'shift-editor-error');} finally {button.disabled=false;}
+        try {
+            const kind=form.elements.event_type.value,data=Object.fromEntries(new FormData(form));
+            if (kind==='shift') {data.cancelled=form.elements.cancelled.checked;await send(root.dataset.saveUrl,data);}
+            else {data.kind=kind;data.all_day=form.elements.all_day.checked;await send(root.dataset.timeOffSaveUrl,data);}
+            dialog.close();await refresh();
+        } catch(e){error(e.message,'shift-editor-error');} finally {button.disabled=false;}
     });
     document.getElementById('shift-delete').addEventListener('click',async()=>{
-        if (!window.confirm(text.delete_confirm)) {return;}
-        try {await send(root.dataset.deleteUrl,{id:form.elements.id.value}); dialog.close(); await refresh();} catch(e){error(e.message,'shift-editor-error');}
+        if (!window.confirm(text.delete_event_confirm)) {return;}
+        try {await send(form.elements.event_type.value==='shift'?root.dataset.deleteUrl:root.dataset.timeOffDeleteUrl,{id:form.elements.id.value}); dialog.close(); await refresh();} catch(e){error(e.message,'shift-editor-error');}
     });
     document.getElementById('workplace-form')?.addEventListener('submit',async event=>{
         event.preventDefault(); const button=event.submitter; button.disabled=true;
@@ -229,24 +240,6 @@ function initialize() {
     document.getElementById('workplace-close')?.addEventListener('click',()=>document.getElementById('workplace-dialog').close());
     for (const key of ['from','to','workplace','category','state']) {document.getElementById(`filter-${key}`)?.addEventListener('change',refresh);}
     document.getElementById('filter-reset')?.addEventListener('click',()=>{for (const key of ['from','to','workplace','category','state']) {document.getElementById(`filter-${key}`).value='';} defaultReportDates(); refresh();});
-    const timeOffForm=document.getElementById('time-off-form');
-    document.getElementById('time-off-new')?.addEventListener('click',()=>editTimeOff());
-    document.getElementById('time-off-close')?.addEventListener('click',()=>document.getElementById('time-off-dialog').close());
-    timeOffForm?.elements.all_day.addEventListener('change',()=>{
-        for (const key of ['begin','end']) {timeOffForm.elements[key].dataset.value=timeOffForm.elements[key].value;}
-        timeOffFields();
-    });
-    timeOffForm?.addEventListener('submit',async event=>{
-        event.preventDefault();event.submitter.disabled=true;
-        try {
-            const data=Object.fromEntries(new FormData(timeOffForm));data.all_day=timeOffForm.elements.all_day.checked;
-            await send(root.dataset.timeOffSaveUrl,data);document.getElementById('time-off-dialog').close();await refresh();
-        } catch(e){error(e.message,'time-off-error');} finally {event.submitter.disabled=false;}
-    });
-    document.getElementById('time-off-delete')?.addEventListener('click',async()=>{
-        if (!window.confirm(text.delete_confirm)) {return;}
-        try {await send(root.dataset.timeOffDeleteUrl,{id:timeOffForm.elements.id.value});document.getElementById('time-off-dialog').close();await refresh();} catch(e){error(e.message,'time-off-error');}
-    });
     const calendarElement=document.getElementById('shift-calendar');
     if (calendarElement) {
         calendar=new Calendar(calendarElement,{
@@ -256,7 +249,7 @@ function initialize() {
             eventTimeFormat:{hour:'2-digit',minute:'2-digit',hour12:false},slotLabelFormat:{hour:'2-digit',minute:'2-digit',hour12:false},
             dateClick:info=>edit({start:info.dateStr.length===10?`${info.dateStr}T08:00`:info.dateStr}),
             select:info=>{if(info.view.type!=='dayGridMonth'){edit({start:info.startStr,end:info.endStr});}},
-            eventClick:info=>info.event.extendedProps.kind==='time_off'?editTimeOff(absences.find(r=>r.id===info.event.id)):edit(records.find(r=>String(r.id)===info.event.id)),
+            eventClick:info=>info.event.extendedProps.kind?edit(absences.find(r=>r.id===info.event.id)):edit(records.find(r=>String(r.id)===info.event.id)),
             dayCellClassNames:info=>[`shift-day-${dayMarker(info.date).kind}`],
             dayHeaderClassNames:info=>[`shift-day-${dayMarker(info.date).kind}`],
             dayCellDidMount:info=>{const marker=dayMarker(info.date);if(marker.label){info.el.title=marker.label;}},
@@ -264,9 +257,9 @@ function initialize() {
             datesSet:info=>{document.getElementById('calendar-swap-notice').classList.toggle('d-none',dayMarker(info.start).known&&dayMarker(new Date(info.end.valueOf()-1)).known);},
             eventClassNames:info=>info.event.extendedProps.state==='cancelled'?['state-cancelled']:[],
             /** Returns wrapped text nodes for FullCalendar info; only cancellation needs a state label. */
-            eventContent:info=>{const label=document.createElement('div');label.className='shift-event-label';label.textContent=info.event.extendedProps.kind==='time_off'?`${info.timeText} ${text.time_off}${info.event.title?' · '+info.event.title:''}`:`${info.timeText} ${info.event.title}${info.event.extendedProps.state==='cancelled'?' · '+text.cancelled:''}`;return {domNodes:[label]};},
+            eventContent:info=>{const label=document.createElement('div');label.className='shift-event-label';label.textContent=info.event.extendedProps.kind==='event'?`${info.timeText} ${info.event.title}`:info.event.extendedProps.kind==='time_off'?`${info.timeText} ${info.event.extendedProps.event_title?info.event.title:text.time_off+(info.event.title?' · '+info.event.title:'')}`:`${info.timeText} ${info.event.title}${info.event.extendedProps.state==='cancelled'?' · '+text.cancelled:''}`;return {domNodes:[label]};},
             /** Sets info.el's full tooltip, keeping completion/planning state exclusive to reports. */
-            eventDidMount:info=>{info.el.title=info.event.extendedProps.kind==='time_off'?`${text.time_off} · ${info.event.title}`:`${info.event.title}${info.event.extendedProps.state==='cancelled'?' · '+text.cancelled:''} · ${money.format(info.event.extendedProps.amount)}`;},
+            eventDidMount:info=>{info.el.title=info.event.extendedProps.kind?`${info.event.title || text.time_off}${info.event.extendedProps.note&&info.event.extendedProps.note!==info.event.title?' · '+info.event.extendedProps.note:''}`:`${info.event.title}${info.event.extendedProps.state==='cancelled'?' · '+text.cancelled:''} · ${money.format(info.event.extendedProps.amount)}`;},
             eventDrop:move,eventResize:move,
         });
         calendar.render();

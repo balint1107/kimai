@@ -81,3 +81,12 @@ shift.public_holiday: Public holiday
 shift.workday: Substitute workday
 shift.rest_day: Substitute rest day
 shift.swap_notice: Workday swaps have not been verified for this year. Public holidays and weekends are still marked.
+
+shift.new_event: New event
+shift.event_type: Event type
+shift.shift_type: Substitution shift
+shift.event: General event
+shift.event_title: Event title
+shift.invalid_event: Enter a valid event type and title. Saved event types cannot be changed.
+shift.calendar_event_help: The end date is included for all-day events. These events do not contribute to working hours or earnings.
+shift.delete_event_confirm: Delete this event?

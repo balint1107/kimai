@@ -46,6 +46,46 @@ class TimeOffServiceTest extends TestCase
         self::assertSame('2026-10-26T12:45:00+01:00', $service->record($absence)['end']);
     }
 
+    /** Persists a titled general event with its own color/identity and no accounting fields. */
+    public function testGeneralEvent(): void
+    {
+        $service = new TimeOffService($this->createMock(EntityManagerInterface::class));
+        $event = $service->save(new User(), ['kind' => 'event', 'title' => ' Meeting ', 'color' => '#123abc', 'note' => 'Bring notes', 'begin' => '2026-10-26T09:00', 'end' => '2026-10-26T10:00']);
+        $event->id = 42;
+        $record = $service->record($event);
+        self::assertSame('event-42', $record['id']);
+        self::assertSame('event', $record['kind']);
+        self::assertSame('Meeting', $record['title']);
+        self::assertSame('Bring notes', $record['note']);
+        self::assertSame('#123abc', $record['color']);
+        self::assertArrayNotHasKey('rate', $record);
+        self::assertArrayNotHasKey('amount', $record);
+    }
+
+    /** Keeps holiday names, notes and custom colors separate when serializing the calendar event. */
+    public function testNamedHolidayColor(): void
+    {
+        $service = new TimeOffService($this->createMock(EntityManagerInterface::class));
+        $holiday = $service->save(new User(), ['kind' => 'time_off', 'title' => ' Family trip ', 'color' => '#e8590c', 'note' => 'Travel', 'all_day' => true, 'begin' => '2026-10-26', 'end' => '2026-10-27']);
+        $record = $service->record($holiday);
+        self::assertSame('Family trip', $record['title']);
+        self::assertSame('Family trip', $record['event_title']);
+        self::assertSame('Travel', $record['note']);
+        self::assertSame('#e8590c', $record['color']);
+    }
+
+    /** Rejects changing a saved holiday into a general event, preserving its existing meaning. */
+    public function testSavedTypeIsImmutable(): void
+    {
+        $owner = new User();
+        $holiday = new ShiftTimeOff($owner, new \DateTimeImmutable(), new \DateTimeImmutable(), true);
+        $em = $this->createMock(EntityManagerInterface::class);
+        $em->method('find')->willReturn($holiday);
+        $em->expects(self::never())->method('persist');
+        $this->expectException(\InvalidArgumentException::class);
+        (new TimeOffService($em))->save($owner, ['id' => 1, 'kind' => 'event', 'title' => 'Meeting', 'begin' => '2026-10-26T09:00', 'end' => '2026-10-26T10:00']);
+    }
+
     /** Provides malformed, nonexistent DST and reversed ranges as rejected JSON-shaped input.
      * @return iterable<string, array{array<string, mixed>}>
      */
@@ -56,6 +96,10 @@ class TimeOffServiceTest extends TestCase
         yield 'nonexistent local hour' => [['begin' => '2026-03-29T02:30', 'end' => '2026-03-29T04:00']];
         yield 'equal partial times' => [['begin' => '2026-10-26T09:00', 'end' => '2026-10-26T09:00']];
         yield 'missing dates' => [[]];
+        yield 'invalid color' => [['kind' => 'event', 'title' => 'Meeting', 'color' => 'red', 'begin' => '2026-10-26T09:00', 'end' => '2026-10-26T10:00']];
+        yield 'unknown kind' => [['kind' => 'shift', 'begin' => '2026-10-26T09:00', 'end' => '2026-10-26T10:00']];
+        yield 'missing event title' => [['kind' => 'event', 'begin' => '2026-10-26T09:00', 'end' => '2026-10-26T10:00']];
+        yield 'overlong event title' => [['kind' => 'event', 'title' => str_repeat('x', 151), 'begin' => '2026-10-26T09:00', 'end' => '2026-10-26T10:00']];
         yield 'invalid note type' => [['all_day' => true, 'begin' => '2026-10-26', 'end' => '2026-10-26', 'note' => []]];
         yield 'invalid ID' => [['id' => 'invalid', 'all_day' => true, 'begin' => '2026-10-26', 'end' => '2026-10-26']];
     }
