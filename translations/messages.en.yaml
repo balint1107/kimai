@@ -4,6 +4,9 @@ shift.navigation: Navigation
 shift.calendar: Calendar
 shift.jump_date: Go to date
 shift.summary: Summary
+shift.completed_total: Completed / Total (completed + planned)
+shift.total_amount: Total amount (HUF)
+shift.complete_only: Only records with a known workplace and EFO/Invoice category are included until incomplete imports are corrected.
 shift.workplaces: Workplaces
 shift.imports: Import review
 shift.source: Source code
@@ -19,6 +22,7 @@ shift.planned: Planned
 shift.in_progress: In progress
 shift.cancelled: Cancelled
 shift.unknown: Unknown
+shift.missing: Missing value
 shift.new_shift: New shift
 shift.save: Save
 shift.saved: Saved

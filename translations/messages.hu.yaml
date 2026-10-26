@@ -4,6 +4,9 @@ shift.navigation: Navigáció
 shift.calendar: Naptár
 shift.jump_date: Ugrás dátumra
 shift.summary: Összegzés
+shift.completed_total: Teljesített / Teljes (teljesített + tervezett)
+shift.total_amount: Teljes összeg (Ft)
+shift.complete_only: A hiányos importok javításáig csak ismert helyszínű EFO/Számla bejegyzések szerepelnek az összegzésben.
 shift.workplaces: Munkahelyek
 shift.imports: Import ellenőrzés
 shift.source: Forráskód
@@ -19,6 +22,7 @@ shift.planned: Tervezett
 shift.in_progress: Folyamatban
 shift.cancelled: Lemondva
 shift.unknown: Ismeretlen
+shift.missing: Hiányzó adat
 shift.new_shift: Új helyettesítés
 shift.save: Mentés
 shift.saved: Mentve

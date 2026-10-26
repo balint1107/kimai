@@ -23,21 +23,21 @@ use Doctrine\ORM\EntityManagerInterface;
 final class ShiftService
 {
     public const UNKNOWN = 'Unknown';
-    public const CATEGORIES = ['EFO', 'Számla', self::UNKNOWN];
+    public const CATEGORIES = ['EFO', 'Számla'];
 
     /** Injects $em for persistence and $timesheets for Kimai validation and rate calculation. */
     public function __construct(private EntityManagerInterface $em, private TimesheetService $timesheets)
     {
     }
 
-    /** Returns managed workplaces and their editable defaults; no customer/project setup is exposed.
+    /** Returns named managed workplaces and their defaults; legacy missing-value placeholders stay review-only.
      * @return list<array{id:int|null,name:string,rate:float,category:mixed,color:string}>
      */
     public function workplaces(): array
     {
         $result = [];
         foreach ($this->em->getRepository(Customer::class)->findBy([], ['name' => 'ASC']) as $customer) {
-            if ($customer->getMetaField('shift_workplace')?->getValue() !== '1') {
+            if ($customer->getMetaField('shift_workplace')?->getValue() !== '1' || !$this->knownWorkplace($customer->getName())) {
                 continue;
             }
             $result[] = [
@@ -55,7 +55,7 @@ final class ShiftService
     public function workplace(string $name, float $rate = 0, string $category = 'EFO', ?string $color = null, ?int $id = null): Customer
     {
         $name = trim($name);
-        if ($name === '' || mb_strlen($name) > 150 || !is_finite($rate) || $rate < 0 || !\in_array($category, self::CATEGORIES, true)) {
+        if (!$this->knownWorkplace($name) || mb_strlen($name) > 150 || !is_finite($rate) || $rate < 0 || !\in_array($category, self::CATEGORIES, true)) {
             throw new \InvalidArgumentException('shift.invalid_workplace');
         }
         $customer = $id === null ? $this->em->getRepository(Customer::class)->findOneBy(['name' => $name]) : $this->em->find(Customer::class, $id);
@@ -127,7 +127,7 @@ final class ShiftService
         return $date;
     }
 
-    /** Saves $data for $owner through Kimai; $existing must belong to that owner.
+    /** Saves known workplace/category $data for $owner through Kimai; $existing must belong to that owner.
      * @param array<string, mixed> $data
      */
     public function save(User $owner, array $data, ?Timesheet $existing = null): Timesheet
@@ -140,7 +140,7 @@ final class ShiftService
             throw new \InvalidArgumentException('shift.invalid_workplace');
         }
         $customer = $this->em->find(Customer::class, (int) $workplaceId);
-        if ($customer === null || $customer->getMetaField('shift_workplace')?->getValue() !== '1') {
+        if ($customer === null || $customer->getMetaField('shift_workplace')?->getValue() !== '1' || !$this->knownWorkplace($customer->getName())) {
             throw new \InvalidArgumentException('shift.invalid_workplace');
         }
         $category = \is_string($data['category'] ?? null) ? $data['category'] : '';
@@ -178,7 +178,7 @@ final class ShiftService
         $this->em->persist($meta);
     }
 
-    /** Returns $owner's managed shifts, optionally bounded by Budapest start dates [from, to).
+    /** Returns $owner's complete managed shifts within [from, to); legacy missing-field records remain available for review.
      * @return list<Timesheet>
      */
     public function shifts(User $owner, ?\DateTimeInterface $from = null, ?\DateTimeInterface $to = null): array
@@ -195,7 +195,20 @@ final class ShiftService
             $query->andWhere('t.begin < :to')->setParameter('to', $to);
         }
 
-        return $query->getQuery()->getResult();
+        return array_values(array_filter($query->getQuery()->getResult(), $this->isComplete(...)));
+    }
+
+    /** Returns whether $shift has a real workplace and an EFO/Számla category; false keeps legacy data review-only. */
+    public function isComplete(Timesheet $shift): bool
+    {
+        return $this->knownWorkplace($shift->getProject()?->getCustomer()?->getName())
+            && \in_array($shift->getActivity()?->getName(), self::CATEGORIES, true);
+    }
+
+    /** Accepts nonblank $name except reserved missing-value placeholders in either interface language. */
+    private function knownWorkplace(?string $name): bool
+    {
+        return $name !== null && !\in_array(mb_strtolower(trim($name)), ['', 'unknown', 'ismeretlen'], true);
     }
 
     /** Returns the time-derived state of $shift at optional $now; cancellation always takes precedence. */

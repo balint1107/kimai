@@ -39,14 +39,17 @@ class WorkbookImportTest extends TestCase
             $parser = (new \ReflectionClass(WorkbookImport::class))->newInstanceWithoutConstructor();
             $rows = $parser->parse($path);
             self::assertCount(4, $rows);
-            self::assertTrue($rows[0]['usable']);
+            self::assertFalse($rows[0]['usable']);
             self::assertSame(33750.0, $rows[0]['source_amount']);
             self::assertContains('date_mismatch', $rows[0]['flags']);
             self::assertContains('missing_category', $rows[0]['flags']);
             self::assertSame('Unknown', $rows[1]['workplace']);
+            self::assertFalse($rows[1]['usable']);
+            self::assertNotEmpty($rows[1]['begin']);
             self::assertSame(0.0, $rows[1]['source_amount']);
             self::assertFalse($rows[2]['usable']);
             self::assertSame('Számla', $rows[3]['category']);
+            self::assertTrue($rows[3]['usable']);
             self::assertSame('2024.04.:2:15', $rows[3]['coordinate']);
         } finally {
             unlink($path);

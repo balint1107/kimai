@@ -60,8 +60,49 @@ class ShiftReportTest extends TestCase
         self::assertNotNull($details);
         self::assertNotNull($summary);
         self::assertSame('s', $details->getCell('B2')->getDataType());
-        self::assertSame(11250.0, $summary->getCell('F2')->getValue());
+        self::assertSame('11 250 / 11 250', $summary->getCell('H3')->getValue());
+        self::assertSame('B1:D1', $summary->getMergeCells()['B1:D1']);
         self::assertSame([], $report->build([])['months']);
+        $book->disconnectWorksheets();
+    }
+
+    /** Combines both categories and completion states once per period, with total including planned work. */
+    public function testGroupedProgressSummary(): void
+    {
+        $service = (new \ReflectionClass(ShiftService::class))->newInstanceWithoutConstructor();
+        $report = new ShiftReport($service);
+        $summary = $report->summary([
+            ['period' => '2026-10', 'category' => 'EFO', 'state' => 'completed', 'count' => 2, 'seconds' => 7200, 'amount' => 12000.0],
+            ['period' => '2026-10', 'category' => 'EFO', 'state' => 'planned', 'count' => 1, 'seconds' => 1800, 'amount' => 3000.0],
+            ['period' => '2026-10', 'category' => 'Számla', 'state' => 'completed', 'count' => 1, 'seconds' => 3600, 'amount' => 8000.0],
+            ['period' => '2026-10', 'category' => 'Számla', 'state' => 'planned', 'count' => 2, 'seconds' => 7200, 'amount' => 16000.0],
+            ['period' => '2026-11', 'category' => 'EFO', 'state' => 'planned', 'count' => 1, 'seconds' => 3600, 'amount' => 6000.0],
+        ]);
+        self::assertCount(2, $summary);
+        self::assertSame(2, $summary[0]['efo']['completed']['count']);
+        self::assertSame(3, $summary[0]['efo']['total']['count']);
+        self::assertSame(9000, $summary[0]['efo']['total']['seconds']);
+        self::assertSame(24000.0, $summary[0]['invoice']['total']['amount']);
+        self::assertSame(20000.0, $summary[0]['all']['completed']['amount']);
+        self::assertSame(39000.0, $summary[0]['all']['total']['amount']);
+        self::assertSame(0.0, $summary[1]['invoice']['total']['amount']);
+        self::assertSame(0, $summary[1]['all']['completed']['count']);
+    }
+
+    /** Keeps legacy missing-category/workplace entries out of financial summaries and exported shift detail. */
+    public function testIncompleteRecordsStayOutOfReports(): void
+    {
+        $service = (new \ReflectionClass(ShiftService::class))->newInstanceWithoutConstructor();
+        $report = new ShiftReport($service);
+        $unknownCategory = $this->shift('2023-12-01T08:00', '2023-12-01T09:00', 7500);
+        $unknownCategory->setActivity((new Activity())->setName('Unknown'));
+        $unknownWorkplace = $this->shift('2023-12-01T10:00', '2023-12-01T11:00', 7500);
+        $unknownWorkplace->getProject()?->getCustomer()?->setName('Ismeretlen');
+        self::assertFalse($service->isComplete($unknownCategory));
+        self::assertFalse($service->isComplete($unknownWorkplace));
+        self::assertSame([], $report->build([$unknownCategory, $unknownWorkplace])['months']);
+        $book = $report->workbook([$unknownCategory, $unknownWorkplace]);
+        self::assertCount(3, $book->getAllSheets());
         $book->disconnectWorksheets();
     }
 }

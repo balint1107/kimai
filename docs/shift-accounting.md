@@ -5,8 +5,10 @@ Monday-first weeks and a calendar editor. Navigate between Calendar, Summary,
 Workplaces and Import review. Workplace defaults apply only when creating a new
 shift or explicitly selecting another workplace; saved hourly rates remain fixed.
 
-Each workplace owns one managed `Shifts` project. Activities encode `EFO`, `Számla`
-and import-only `Unknown`. Native Kimai timesheets remain authoritative. Shift
+Each workplace owns one managed `Shifts` project. Activities must be `EFO` or `Számla`.
+Blank/Unknown/Ismeretlen workplaces and unknown categories cannot be saved. Legacy
+missing-field entries are preserved as review-only drafts, excluded from the calendar,
+reports, cards and exports until corrected through Import review. Native timesheets remain authoritative. Shift
 metadata stores cancellation, review warnings and source provenance. Rates use
 Kimai's classic elapsed-seconds calculation without duration rounding. Reports
 display whole HUF while exports retain numeric precision. Each record counts once;
@@ -22,13 +24,24 @@ navigation does not change the headline month. The cards advance automatically
 when the month changes during a minute refresh.
 This is an earnings register; categories do not implement taxes or statutory invoices.
 
+## Summary layout
+
+Monthly and yearly summaries have one row per period. EFO and Számla are major
+column groups, each with Alkalom, Óra and Összeg subcolumns. Every cell displays
+`completed / total`, where total includes completed plus planned/in-progress work.
+The final column combines both categories' earnings in the same format. A zero
+category displays `0 / 0`; cancellation never contributes. Existing report filters
+apply to both sides of the pair. The XLSX Összegzés sheet uses the same grouped
+headers and paired values; numeric per-shift detail remains available separately.
+
 ## Workbook import
 
 Upload XLSX (20 MB compressed / 100 MB expanded limit), review the preview, then
 confirm import. Only monthly sheets matching `YYYY.MM.` are read. Header positions
 identify shift blocks. Formula totals are not evaluated. Rate-only placeholders
-are ignored. Timed records with missing workplace/category become explicit Unknown
-records with review flags. Missing times/rates remain source items without shifts.
+are ignored. Missing workplace/category/time/rate data stays in the review queue
+without creating an active shift. Historical placeholder entries remain linked to
+their source for correction, never guessed or discarded.
 Date cells are retained even when they disagree with sheet names. Correct entries
 using Import review; original normalized source values are retained permanently.
 

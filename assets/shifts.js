@@ -52,7 +52,7 @@ function initialize() {
             if (!select) {continue;}
             const old=select.value; select.replaceChildren();
             select.add(new Option(select.id==='filter-workplace' ? text.all || 'Mind' : '—',''));
-            for (const place of places) {select.add(new Option(place.name==='Unknown' ? text.unknown : place.name,place.id));}
+            for (const place of places) {select.add(new Option(place.name,place.id));}
             select.value=old;
         }
         const list=document.getElementById('workplace-list');
@@ -75,7 +75,33 @@ function initialize() {
         const body=table.createTBody();
         for (const row of rows) {
             const tr=body.insertRow();
-            for (const value of [row.period,row.category==='Unknown'?text.unknown:row.category,text[row.state],row.count,hours(row.seconds),money.format(row.amount)]) {tr.insertCell().textContent=value;}
+            for (const value of [row.period,row.category,text[row.state],row.count,hours(row.seconds),money.format(row.amount)]) {tr.insertCell().textContent=value;}
+        }
+        container.replaceChildren(table);
+    }
+    /** Renders one row per period with EFO/Számla column groups and completed / total values, including planned work. */
+    function summaryReport(target,rows) {
+        const container=document.getElementById(target); if (!container) {return;}
+        const table=document.createElement('table'); table.className='table table-vcenter shift-summary-table';
+        const head=table.createTHead(), major=head.insertRow(), minor=head.insertRow();
+        const period=document.createElement('th'); period.rowSpan=2; period.scope='col'; period.textContent=text.period; major.append(period);
+        for (const label of ['EFO','Számla']) {
+            const group=document.createElement('th'); group.colSpan=3; group.scope='colgroup'; group.textContent=label; group.className='text-center shift-group-start'; major.append(group);
+            for (const key of ['count','hours','amount']) {const cell=document.createElement('th');cell.scope='col';cell.textContent=text[key];if(key==='count'){cell.className='shift-group-start';}minor.append(cell);}
+        }
+        const total=document.createElement('th');total.rowSpan=2;total.scope='col';total.textContent=text.total_amount;total.className='shift-group-start';major.append(total);
+        const body=table.createTBody();
+        for (const row of rows) {
+            const tr=body.insertRow();tr.insertCell().textContent=row.period;
+            for (const category of ['efo','invoice']) {
+                for (const key of ['count','seconds','amount']) {
+                    const cell=tr.insertCell(), progress=row[category];
+                    const format=key==='seconds'?hours:key==='amount'?value=>money.format(value):String;
+                    cell.textContent=`${format(progress.completed[key])} / ${format(progress.total[key])}`;
+                    if(key==='count'){cell.className='shift-group-start';}
+                }
+            }
+            const cell=tr.insertCell();cell.textContent=`${money.format(row.all.completed.amount)} / ${money.format(row.all.total.amount)}`;cell.className='shift-group-start fw-bold';
         }
         container.replaceChildren(table);
     }
@@ -101,7 +127,7 @@ function initialize() {
                 const detail=document.createElement('div'); detail.textContent=`${sum.count} ${text.count} · ${hours(sum.seconds)} ${text.hours}`;
                 box.append(heading,amount,detail); card.append(box); totals.append(card);
             }
-            report('report-months',data.groups.months); report('report-years',data.groups.years); report('report-workplaces',data.groups.workplaces); report('report-workplace_years',data.groups.workplace_years);
+            summaryReport('report-months',data.summary.months); summaryReport('report-years',data.summary.years); report('report-workplaces',data.groups.workplaces); report('report-workplace_years',data.groups.workplace_years);
             if (calendar) { calendar.getEventSources().forEach(source=>source.remove()); calendar.addEventSource(records); }
             for (const format of ['xlsx','csv']) {document.getElementById(`export-${format}`).href=`${root.dataset[`${format}Url`]}?${params}`;}
             document.getElementById('shift-error').classList.add('d-none');
@@ -130,7 +156,6 @@ function initialize() {
         if (record.review_item && !record.id && !record.begin) { form.elements.begin.value=''; form.elements.end.value=''; }
         form.elements.cancelled.checked=!!record.cancelled;
         if (!record.id && record.rate===undefined && places.length) {form.elements.workplace.value=places[0].id; defaults();}
-        form.elements.category.querySelector('[value="Unknown"]').disabled=!record.id&&!record.review_item;
         document.getElementById('shift-delete').classList.toggle('d-none',!record.id);
         document.getElementById('shift-editor-error').classList.add('d-none');
         document.getElementById('shift-editor-title').textContent=record.review_item?`${text.review} · ${record.date || ''}`:text.new_shift;

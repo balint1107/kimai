@@ -17,6 +17,9 @@ use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 /**
  * Builds every accounting view/export from the same native shift records.
  * @phpstan-type Aggregate array{period:string,category:string,state:string,count:int,seconds:int,amount:float}
+ * @phpstan-type Metrics array{count:int,seconds:int,amount:float}
+ * @phpstan-type Progress array{completed:Metrics,total:Metrics}
+ * @phpstan-type SummaryRow array{period:string,efo:Progress,invoice:Progress,all:Progress}
  */
 final class ShiftReport
 {
@@ -25,7 +28,7 @@ final class ShiftReport
     {
     }
 
-    /** Aggregates $records by month, year and workplace/category/state.
+    /** Aggregates complete $records by period/category/state, excluding cancellation and missing-value drafts.
      * @param list<Timesheet> $records
      * @return array<string, list<Aggregate>>
      */
@@ -34,7 +37,7 @@ final class ShiftReport
         $groups = ['months' => [], 'years' => [], 'workplaces' => [], 'workplace_years' => []];
         foreach ($records as $shift) {
             $date = $shift->getBegin();
-            if ($date === null || $this->shifts->state($shift) === 'cancelled') {
+            if ($date === null || !$this->shifts->isComplete($shift) || $this->shifts->state($shift) === 'cancelled') {
                 continue;
             }
             $date->setTimezone(new \DateTimeZone('Europe/Budapest'));
@@ -58,7 +61,36 @@ final class ShiftReport
         return $result;
     }
 
-    /** Creates an XLSX-ready workbook from $records, including all three summaries and monthly detail.
+    /** Pivots $rows into one row per period; total includes completed and planned work without double counting.
+     * @param list<Aggregate> $rows
+     * @return list<SummaryRow>
+     */
+    public function summary(array $rows): array
+    {
+        $result = [];
+        $zero = ['count' => 0, 'seconds' => 0, 'amount' => 0.0];
+        $empty = ['completed' => $zero, 'total' => $zero];
+        foreach ($rows as $row) {
+            if (!\in_array($row['category'], ShiftService::CATEGORIES, true)) {
+                continue;
+            }
+            $period = $row['period'];
+            $category = $row['category'] === 'EFO' ? 'efo' : 'invoice';
+            $result[$period] ??= ['period' => $period, 'efo' => $empty, 'invoice' => $empty, 'all' => $empty];
+            foreach ([$category, 'all'] as $group) {
+                foreach ($row['state'] === 'completed' ? ['completed', 'total'] : ['total'] as $state) {
+                    $result[$period][$group][$state]['count'] += $row['count'];
+                    $result[$period][$group][$state]['seconds'] += $row['seconds'];
+                    $result[$period][$group][$state]['amount'] += $row['amount'];
+                }
+            }
+        }
+        ksort($result);
+
+        return array_values($result);
+    }
+
+    /** Creates grouped completed/total XLSX summaries and valid monthly detail from $records.
      * @param list<Timesheet> $records
      */
     public function workbook(array $records): Spreadsheet
@@ -69,6 +101,10 @@ final class ShiftReport
         $groups['months'] = array_merge($groups['months'], $groups['years']);
         foreach (['months' => 'Összegzés', 'workplaces' => 'Munkahely Idő', 'workplace_years' => 'Munkahely Év'] as $type => $title) {
             $sheet = $book->createSheet()->setTitle($title);
+            if ($type === 'months') {
+                $this->summarySheet($sheet, $this->summary($groups[$type]));
+                continue;
+            }
             $rows = [['Időszak / munkahely', 'EFO/Számla', 'Állapot', 'Alkalom', 'Óra', 'Összeg (HUF)']];
             foreach ($groups[$type] as $row) {
                 $rows[] = [$row['period'], $row['category'], $row['state'] === 'completed' ? 'Teljesített' : 'Tervezett', $row['count'], $row['seconds'] / 3600, $row['amount']];
@@ -77,6 +113,9 @@ final class ShiftReport
         }
         $months = [];
         foreach ($records as $shift) {
+            if (!$this->shifts->isComplete($shift)) {
+                continue;
+            }
             $month = $shift->getBegin()?->format('Y.m.') ?? 'Unknown';
             $months[$month] ??= [['Dátum', 'Helyszín', 'Kezdete', 'Vége', 'Órabér', 'Összeg', 'EFO/Számla', 'Óra', 'Állapot', 'Megjegyzés']];
             $months[$month][] = [
@@ -92,6 +131,49 @@ final class ShiftReport
         $book->setActiveSheetIndex(0);
 
         return $book;
+    }
+
+    /** Writes grouped EFO/Számla columns into $sheet; each value is completed / total, with combined HUF last.
+     * @param list<SummaryRow> $rows
+     */
+    private function summarySheet(Worksheet $sheet, array $rows): void
+    {
+        $values = [
+            ['Időszak', 'EFO', '', '', 'Számla', '', '', 'Teljes összeg (Ft)'],
+            ['', 'Alkalom', 'Óra', 'Összeg (Ft)', 'Alkalom', 'Óra', 'Összeg (Ft)', ''],
+        ];
+        foreach ($rows as $row) {
+            $values[] = [$row['period'], $this->pair($row['efo'], 'count'), $this->pair($row['efo'], 'seconds'), $this->pair($row['efo'], 'amount'), $this->pair($row['invoice'], 'count'), $this->pair($row['invoice'], 'seconds'), $this->pair($row['invoice'], 'amount'), $this->pair($row['all'], 'amount')];
+        }
+        $this->writeRows($sheet, $values);
+        foreach (['A1:A2', 'B1:D1', 'E1:G1', 'H1:H2'] as $range) {
+            $sheet->mergeCells($range);
+        }
+        $sheet->freezePane('B3');
+        $sheet->setAutoFilter('');
+        $sheet->getStyle('A1:H2')->getFont()->setBold(true);
+        $sheet->getStyle('A1:H2')->getAlignment()->setHorizontal('center')->setVertical('center');
+        $sheet->getStyle('B3:H' . max(3, $sheet->getHighestRow()))->getAlignment()->setHorizontal('right');
+        $sheet->getComment('A1')->getText()->createTextRun('Teljesített / Teljes (teljesített + tervezett)');
+    }
+
+    /** Formats completed/total $progress for $metric; seconds use unbounded H:MM, amounts use whole HUF.
+     * @param Progress $progress
+     * @param 'count'|'seconds'|'amount' $metric
+     */
+    private function pair(array $progress, string $metric): string
+    {
+        $values = [];
+        foreach (['completed', 'total'] as $state) {
+            $value = $progress[$state][$metric];
+            $values[] = match ($metric) {
+                'seconds' => \sprintf('%d:%02d', intdiv((int) $value, 3600), intdiv((int) $value, 60) % 60),
+                'amount' => number_format($value, 0, ',', ' '),
+                default => (string) $value,
+            };
+        }
+
+        return implode(' / ', $values);
     }
 
     /** Writes $rows without interpreting user text as formulas; freezes and formats $sheet.

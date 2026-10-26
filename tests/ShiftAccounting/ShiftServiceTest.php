@@ -17,6 +17,26 @@ use PHPUnit\Framework\TestCase;
 /** Verifies Budapest parsing and time-derived accounting state without a clock job. */
 class ShiftServiceTest extends TestCase
 {
+    /** Rejects a reserved missing-value workplace before accessing persistence. */
+    public function testRejectsUnknownWorkplace(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->service()->workplace(' Ismeretlen ', 7500, 'EFO');
+    }
+
+    /** Rejects an unknown category on the server even if a client bypasses the dropdown. */
+    public function testRejectsUnknownCategory(): void
+    {
+        $customer = new \App\Entity\Customer('Test workplace');
+        $customer->setMetaField((new \App\Entity\CustomerMeta())->setName('shift_workplace')->setValue('1'));
+        $em = $this->createMock(\Doctrine\ORM\EntityManagerInterface::class);
+        $em->method('find')->willReturn($customer);
+        $native = (new \ReflectionClass(\App\Timesheet\TimesheetService::class))->newInstanceWithoutConstructor();
+        $service = new ShiftService($em, $native);
+        $this->expectException(\InvalidArgumentException::class);
+        $service->save(new \App\Entity\User(), ['workplace' => 1, 'category' => 'Unknown', 'rate' => 7500]);
+    }
+
     /** Exercises pure methods without constructing persistence collaborators. */
     private function service(): ShiftService
     {

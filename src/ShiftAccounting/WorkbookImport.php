@@ -110,7 +110,7 @@ final class WorkbookImport
                         'efo' => 'EFO', 'szla', 'számla' => 'Számla', default => ShiftService::UNKNOWN,
                     };
                     $workplace = trim($this->text($raw['workplace']));
-                    if ($workplace === '') {
+                    if ($workplace === '' || \in_array(mb_strtolower($workplace), ['unknown', 'ismeretlen'], true)) {
                         $flags[] = 'missing_workplace';
                     }
                     if ($category === ShiftService::UNKNOWN) {
@@ -125,15 +125,16 @@ final class WorkbookImport
                     if ($rate === null || $rate < 0) {
                         $flags[] = 'missing_rate';
                     }
-                    $usable = $date !== null && $begin !== null && $end !== null && $end > $begin && $rate !== null && $rate >= 0;
-                    $seconds = $usable ? (int) round(($end - $begin) * 86400) : 0;
+                    $timed = $date !== null && $begin !== null && $end !== null && $end > $begin && $rate !== null && $rate >= 0;
+                    $usable = $timed && $workplace !== '' && !\in_array(mb_strtolower($workplace), ['unknown', 'ismeretlen'], true) && \in_array($category, ShiftService::CATEGORIES, true);
+                    $seconds = $timed ? (int) round(($end - $begin) * 86400) : 0;
                     $result[] = [
                         'coordinate' => $sheet->getTitle() . ':' . $r . ':' . $column,
                         'date' => $date, 'workplace' => $workplace !== '' ? $workplace : ShiftService::UNKNOWN,
-                        'begin' => $usable ? $date . 'T' . gmdate('H:i:s', (int) round($begin * 86400)) : '',
-                        'end' => $usable ? $date . 'T' . gmdate('H:i:s', (int) round($end * 86400)) : '',
+                        'begin' => $timed ? $date . 'T' . gmdate('H:i:s', (int) round($begin * 86400)) : '',
+                        'end' => $timed ? $date . 'T' . gmdate('H:i:s', (int) round($end * 86400)) : '',
                         'rate' => $rate, 'category' => $category, 'flags' => $flags, 'usable' => $usable,
-                        'source_seconds' => $seconds, 'source_amount' => $usable ? round($seconds / 3600 * $rate, 4) : 0.0,
+                        'source_seconds' => $seconds, 'source_amount' => $timed ? round($seconds / 3600 * $rate, 4) : 0.0,
                         'raw' => $raw,
                     ];
                 }
@@ -191,7 +192,7 @@ final class WorkbookImport
         return $batch;
     }
 
-    /** Imports all usable items in $batch atomically; repeated execution does not modify existing shifts. */
+    /** Imports complete named/category items in $batch atomically; incomplete and legacy-placeholder rows stay review-only. */
     public function commit(ShiftImportBatch $batch): void
     {
         $this->em->wrapInTransaction(function () use ($batch): void {
@@ -205,7 +206,7 @@ final class WorkbookImport
             }
             foreach ($this->items($batch) as $item) {
                 $data = $item->payload;
-                if (!$data['usable']) {
+                if (!$data['usable'] || !\in_array($data['category'], ShiftService::CATEGORIES, true) || \in_array(mb_strtolower($data['workplace']), ['unknown', 'ismeretlen', ''], true)) {
                     continue;
                 }
                 if (!isset($places[$data['workplace']])) {

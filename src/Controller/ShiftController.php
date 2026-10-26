@@ -71,14 +71,15 @@ final class ShiftController extends AbstractController
         ]);
     }
 
-    /** Returns owner-scoped calendar records and filtered report groups for query parameters in $request. */
+    /** Returns complete owner-scoped records, flat reports and grouped completed/total summaries filtered by $request. */
     #[Route(path: '/data', name: 'shift_data', methods: ['GET'])]
     public function data(Request $request): JsonResponse
     {
         try {
             $records = $this->filtered($request);
+            $groups = $this->reports->build($records);
 
-            return $this->json(['events' => array_map($this->shifts->record(...), $records), 'groups' => $this->reports->build($records), 'places' => $this->shifts->workplaces()]);
+            return $this->json(['events' => array_map($this->shifts->record(...), $records), 'groups' => $groups, 'summary' => ['months' => $this->reports->summary($groups['months']), 'years' => $this->reports->summary($groups['years'])], 'places' => $this->shifts->workplaces()]);
         } catch (\InvalidArgumentException $e) {
             return $this->error($e);
         }
