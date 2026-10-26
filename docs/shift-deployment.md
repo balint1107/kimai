@@ -29,6 +29,24 @@ Start with `docker compose -f deploy/compose.yaml up -d`. The upstream entrypoin
 creates the database, applies migrations and creates the initial admin account.
 Registration is disabled. Keep credentials private. Import only after a database backup.
 
+## Fast development iterations
+
+Scope checks to the change and batch related edits before deploying once. For
+layout-only changes, use the frontend build and a focused mobile/desktop browser
+check through `/kimai/`. For PHP changes, run the relevant PHPUnit tests and the
+repository-required style/static checks; add import, accounting or database checks
+when those behaviors change. Run broader regression checks for shared configuration,
+dependencies, migrations and release upgrades rather than repeating them after each
+visual edit. Documentation-only changes need no image rebuild.
+
+Sync only changed source files and refresh the public source archive before building.
+Keep Docker's layer cache: frontend dependencies install before copying assets, so
+CSS/JavaScript edits reuse them. PHP/Twig-only changes reuse the entire frontend
+stage. Recreate only the app (`docker compose -f deploy/compose.yaml up -d --no-deps app`)
+when database configuration is unchanged. Keep deployment images reproducible; use
+the backup procedure below before imports, upgrades or database changes. Report the
+focused checks actually run and any remaining validation limits.
+
 ## Backup, restore and rollback
 
 Use `mariadb-dump --single-transaction --routines --triggers` inside the database

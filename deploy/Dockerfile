@@ -2,10 +2,11 @@ FROM node:22-alpine AS frontend
 WORKDIR /app
 RUN corepack enable && corepack prepare pnpm@10.20.0 --activate
 COPY package.json pnpm-lock.yaml webpack.config.js eslint.config.mjs ./
+RUN pnpm install --frozen-lockfile
 COPY assets ./assets
 ARG APP_BASE_PATH=/kimai
 ENV APP_BASE_PATH=${APP_BASE_PATH}
-RUN pnpm install --frozen-lockfile && pnpm lint:shifts && pnpm build
+RUN pnpm lint:shifts && pnpm build
 
 FROM kimai/kimai2:2.71.0@sha256:19b34043e7631b122c5e5aca27c3f3caa0bb37d2bce1478342c666bcdfe84f48
 COPY --chown=www-data:www-data src /opt/kimai/src
