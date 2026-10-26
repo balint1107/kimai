@@ -26,8 +26,8 @@
         <div class="card"><div class="card-body"><div id="shift-calendar"></div></div></div>
     {% elseif tab == 'summary' %}
         <p class="text-muted">{{ 'shift.completed_total'|trans }}. {{ 'shift.complete_only'|trans }} <a href="{{ path('shift_calendar', {tab:'imports'}) }}">{{ 'shift.imports'|trans }}</a></p>
-        <h2>{{ 'shift.monthly'|trans }}</h2><div id="report-months" class="table-responsive card mb-3"></div>
-        <h2>{{ 'shift.yearly'|trans }}</h2><div id="report-years" class="table-responsive card"></div>
+        <h2>{{ 'shift.monthly'|trans }}</h2><div id="report-months" class="table-responsive card mb-3 shift-summary-scroll" tabindex="0" aria-label="{{ 'shift.monthly'|trans }}"></div>
+        <h2>{{ 'shift.yearly'|trans }}</h2><div id="report-years" class="table-responsive card shift-summary-scroll" tabindex="0" aria-label="{{ 'shift.yearly'|trans }}"></div>
     {% elseif tab == 'workplaces' %}
         <div class="card mb-3"><div class="card-body">
             <h2>{{ 'shift.defaults'|trans }}</h2>

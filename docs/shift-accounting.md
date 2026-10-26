@@ -36,6 +36,10 @@ The final column combines both categories' earnings in the same format. A zero
 category displays `0 / 0`; cancellation never contributes. Existing report filters
 apply to both sides of the pair. The XLSX Összegzés sheet uses the same grouped
 headers and paired values; numeric per-shift detail remains available separately.
+Both summary tables use compact cell spacing and horizontal scrolling on narrow
+screens. The Időszak header and first-column cells stay pinned to the left with
+opaque backgrounds while the remaining columns scroll. Scroll regions support
+keyboard focus as well as touch/trackpad scrolling.
 
 ## Workbook import
 
