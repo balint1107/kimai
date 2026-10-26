@@ -82,7 +82,8 @@ choices. New entries can switch type while retaining their chosen dates. Saved
 entries/import-review drafts keep their type; the selector is locked to avoid
 converting accounting records into unrelated calendar entries. Shift fields include
 workplace, whole-HUF rate, EFO/Számla and cancellation with an amount preview. Holiday and general-event fields include a required name, color picker, optional note
-and inclusive all-day date ranges or partial days. Holiday names default to Szabadság;
+and inclusive all-day date ranges or partial days. Holiday names default to Szabadság; switching away clears this automatic name,
+while user-entered names remain;
 existing entries without a saved name retain their notes. Colors persist per entry,
 with purple/teal defaults for existing holidays/general events.
 Hidden fields are disabled, so their validation and accounting values cannot leak

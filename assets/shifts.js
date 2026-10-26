@@ -163,6 +163,14 @@ function initialize() {
         const overlap=records.some(r=>String(r.id)!==form.elements.id.value&&!r.cancelled&&DateTime.fromISO(r.start)<end&&DateTime.fromISO(r.end)>begin);
         document.getElementById('shift-overlap').classList.toggle('d-none',!overlap);
     }
+    /** Switches new-event layouts, clearing only the auto-filled holiday name and preserving user-entered names. */
+    function changeEventType() {
+        const holiday=form.elements.event_type.value==='time_off',title=form.elements.title;
+        if (!holiday&&title.dataset.defaultHolidayName) {title.value='';delete title.dataset.defaultHolidayName;}
+        if (holiday&&!title.value) {title.value=text.time_off;title.dataset.defaultHolidayName='1';}
+        form.elements.all_day.checked=holiday;form.elements.color.value=holiday?'#7952b3':'#0f766e';
+        eventLayout();
+    }
     /** Adapts shared dates and enabled/required fields to the selected event type without submitting hidden accounting fields. */
     function eventLayout() {
         const kind=form.elements.event_type.value,isShift=kind==='shift',allDay=!isShift&&form.elements.all_day.checked;
@@ -183,7 +191,7 @@ function initialize() {
     }
     /** Opens a shift or calendar-only record in one editor; new entries can select type, saved IDs/review entries keep their type. */
     function edit(record={}) {
-        form.reset();populatePlaces();
+        form.reset();delete form.elements.title.dataset.defaultHolidayName;populatePlaces();
         const kind=record.kind || 'shift',isShift=kind==='shift';
         form.elements.event_type.value=kind;form.elements.event_type.disabled=!!(record.id||record.review_item);
         for (const key of ['begin','end']) {form.elements[key].type='datetime-local';form.elements[key].step='60';}
@@ -209,7 +217,8 @@ function initialize() {
     populatePlaces();
     document.getElementById('shift-close').addEventListener('click',()=>dialog.close());
     document.getElementById('shift-new')?.addEventListener('click',()=>edit());
-    form.elements.event_type.addEventListener('change',()=>{form.elements.all_day.checked=form.elements.event_type.value==='time_off';form.elements.color.value=form.elements.event_type.value==='time_off'?'#7952b3':'#0f766e';if(form.elements.event_type.value==='time_off'&&!form.elements.title.value){form.elements.title.value=text.time_off;}eventLayout();});
+    form.elements.event_type.addEventListener('change',changeEventType);
+    form.elements.title.addEventListener('input',()=>{delete form.elements.title.dataset.defaultHolidayName;});
     form.elements.all_day.addEventListener('change',eventLayout);
     form.addEventListener('input',preview); form.elements.workplace.addEventListener('change',defaults);
     form.addEventListener('submit',async event=>{
