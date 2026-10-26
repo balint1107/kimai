@@ -1,0 +1,9 @@
+.git
+vendor
+node_modules
+var
+public/build
+public/bundles
+.env.local
+deploy/.env
+deploy/private

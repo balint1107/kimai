@@ -1,0 +1,25 @@
+framework:
+    trusted_headers: ['x-forwarded-for', 'x-forwarded-host', 'x-forwarded-proto', 'x-forwarded-port', 'x-forwarded-prefix']
+    session:
+        cookie_path: /kimai/
+kimai:
+    user:
+        registration: false
+    timesheet:
+        rules:
+            allow_future_times: true
+            allow_overlapping_records: true
+        rounding:
+            default:
+                days: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
+                begin: 0
+                end: 0
+                duration: 0
+    defaults:
+        customer:
+            country: HU
+            currency: HUF
+            timezone: Europe/Budapest
+        user:
+            language: hu
+            timezone: Europe/Budapest

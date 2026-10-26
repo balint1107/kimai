@@ -26,7 +26,7 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 #[IsGranted('IS_AUTHENTICATED_REMEMBERED')]
 final class HomepageController extends AbstractController
 {
-    public const DEFAULT_ROUTE = 'timesheet';
+    public const DEFAULT_ROUTE = 'shift_calendar';
 
     #[Route(path: '', defaults: [], name: 'homepage', methods: ['GET'])]
     public function homepage(Request $request, LocaleService $service, EventDispatcherInterface $eventDispatcher, UserRepository $userRepository): Response

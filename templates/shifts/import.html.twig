@@ -1,0 +1,16 @@
+{% extends 'shifts/layout.html.twig' %}
+{% block accounting %}
+<h2>{{ batch.filename }}</h2>
+<p>{{ 'shift.candidates'|trans }}: {{ reconciliation.candidates }} · {{ 'shift.imported'|trans }}: {{ reconciliation.imported }} · {{ 'shift.review'|trans }}: {{ reconciliation.unresolved }}</p>
+{% if not batch.imported %}
+<form action="{{ path('shift_import_commit', {id:batch.id}) }}" method="post" class="mb-3"><input type="hidden" name="_token" value="{{ csrf_token('shifts') }}"><button class="btn btn-primary">{{ 'shift.commit'|trans }}</button></form>
+{% endif %}
+<a class="btn mb-3" href="{{ path('shift_reconciliation', {id:batch.id}) }}">{{ 'shift.reconciliation'|trans }} JSON</a>
+<div class="table-responsive card mb-3"><table class="table table-vcenter"><thead><tr><th>{{ 'shift.period'|trans }}</th><th>{{ 'shift.source_hours'|trans }}</th><th>{{ 'shift.actual_hours'|trans }}</th><th>{{ 'shift.source_amount'|trans }}</th><th>{{ 'shift.actual_amount'|trans }}</th><th>Δ HUF</th></tr></thead><tbody>
+{% for month, totals in reconciliation.months %}<tr><td>{{ month }}</td><td>{{ (totals.source_seconds/3600)|number_format(2, ',', ' ') }}</td><td>{{ (totals.actual_seconds/3600)|number_format(2, ',', ' ') }}</td><td>{{ totals.source_amount|number_format(0, ',', ' ') }}</td><td>{{ totals.actual_amount|number_format(0, ',', ' ') }}</td><td>{{ (totals.actual_amount-totals.source_amount)|number_format(2, ',', ' ') }}</td></tr>{% endfor %}
+</tbody></table></div>
+<h2>{{ 'shift.review'|trans }}</h2><p>{{ 'shift.review_help'|trans }}</p>
+<div class="table-responsive card"><table class="table table-vcenter"><thead><tr><th>{{ 'shift.source'|trans }}</th><th>{{ 'shift.workplace'|trans }}</th><th>{{ 'shift.category'|trans }}</th><th>{{ 'shift.review'|trans }}</th><th></th></tr></thead><tbody>
+{% for item in items %}{% if not item.resolved %}<tr><td>{{ item.coordinate }}</td><td>{{ item.payload.workplace }}</td><td>{{ item.payload.category }}</td><td>{% if batch.imported and item.timesheet is null %}{{ 'shift.flag.missing_shift'|trans }}. {% endif %}{% for flag in item.payload.flags %}{{ ('shift.flag.' ~ flag)|trans }}{% if not loop.last %}, {% endif %}{% endfor %}</td><td>{% if batch.imported %}<a href="{{ path('shift_calendar', {review:item.id}) }}" class="btn btn-sm">{{ 'edit'|trans }}</a>{% endif %}</td></tr>{% endif %}{% endfor %}
+</tbody></table></div>
+{% endblock %}

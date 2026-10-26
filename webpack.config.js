@@ -2,7 +2,7 @@ const Encore = require('@symfony/webpack-encore');
 
 Encore
     .setOutputPath('public/build/')
-    .setPublicPath('/build/')
+    .setPublicPath((process.env.APP_BASE_PATH || '') + '/build/')
     .setManifestKeyPrefix('build/')
     .cleanupOutputBeforeBuild()
 
@@ -13,6 +13,7 @@ Encore
     .addEntry('invoice-pdf', './assets/invoice-pdf.js')
     .addEntry('chart', './assets/chart.js')
     .addEntry('calendar', './assets/calendar.js')
+    .addEntry('shifts', './assets/shifts.js')
     .addEntry('dashboard', './assets/dashboard.js')
     .addEntry('highlight', './assets/highlight.js')
 

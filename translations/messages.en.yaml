@@ -1,0 +1,66 @@
+shift.title: Shifts and earnings
+shift.subtitle: Workplaces, working time and earnings in one place
+shift.navigation: Navigation
+shift.calendar: Calendar
+shift.jump_date: Go to date
+shift.summary: Summary
+shift.workplaces: Workplaces
+shift.imports: Import review
+shift.source: Source code
+shift.workplace: Workplace
+shift.category: EFO/Invoice
+shift.rate: Hourly rate (HUF/hour)
+shift.begin: Start
+shift.end: End
+shift.note: Note
+shift.state: State
+shift.completed: Completed
+shift.planned: Planned
+shift.in_progress: In progress
+shift.cancelled: Cancelled
+shift.unknown: Unknown
+shift.new_shift: New shift
+shift.save: Save
+shift.saved: Saved
+shift.delete_confirm: Delete this shift?
+shift.count: shifts
+shift.hours: hours
+shift.amount: Amount (HUF)
+shift.period: Period
+shift.from: From
+shift.to: Through
+shift.all: All
+shift.reset: Clear filters
+shift.monthly: Monthly summary
+shift.yearly: Yearly summary
+shift.defaults: Workplace defaults
+shift.color: Color
+shift.new_workplace: New workplace
+shift.workplace_totals: Monthly workplace summary
+shift.upload: Import workbook
+shift.import_help: Review the preview first. Import recalculates source times and rates; repeated uploads do not create duplicates.
+shift.preview: Preview
+shift.imported: Imported
+shift.candidates: Source entries
+shift.commit: Confirm and import
+shift.reconciliation: Reconciliation report
+shift.source_hours: Source hours
+shift.actual_hours: Imported hours
+shift.source_amount: Source amount (HUF)
+shift.actual_amount: Imported amount (HUF)
+shift.review: Needs review
+shift.review_help: Incomplete entries are retained. Entries without usable times are excluded from accounting. Corrections update imported records while retaining original source data.
+shift.overlap: This interval overlaps another shift. Check the times; saving is allowed.
+shift.invalid_time: Check the start/end dates, times and hourly rate.
+shift.invalid_rate: Enter a valid nonnegative rate and settlement category.
+shift.invalid_workplace: Enter a valid workplace and defaults.
+shift.invalid_workbook: Unreadable or unsupported workbook. Maximum upload size is 20 MB.
+shift.not_found: Record not found.
+shift.validation_error: The shift failed validation. Check the times, workplace and hourly rate.
+shift.flag.missing_date: Missing date
+shift.flag.date_mismatch: Date differs from worksheet month
+shift.flag.missing_workplace: Missing workplace
+shift.flag.missing_category: Missing settlement category
+shift.flag.missing_or_invalid_time: Missing or invalid time
+shift.flag.missing_rate: Missing rate
+shift.flag.missing_shift: No linked shift

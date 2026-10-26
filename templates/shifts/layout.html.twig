@@ -1,0 +1,24 @@
+{% extends 'base.html.twig' %}
+{% block stylesheets %}
+    {{ parent() }}
+    {{ encore_entry_link_tags('shifts') }}
+{% endblock %}
+{% block head %}
+    {{ parent() }}
+    {{ encore_entry_script_tags('shifts') }}
+{% endblock %}
+{% block main %}
+<div class="shift-app">
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+        <div><h1 class="mb-1">{{ 'shift.title'|trans }}</h1><div class="text-muted">{{ 'shift.subtitle'|trans }}</div></div>
+        <div class="d-flex gap-2"><a class="btn" href="{{ path('logout') }}">{{ 'logout'|trans }}</a></div>
+    </div>
+    <nav class="nav nav-pills gap-1 mb-3" aria-label="{{ 'shift.navigation'|trans }}">
+        {% for name in ['calendar','summary','workplaces','imports'] %}
+            <a class="nav-link {{ tab|default('imports') == name ? 'active' : '' }}" href="{{ path('shift_calendar', {tab:name}) }}">{{ ('shift.' ~ name)|trans }}</a>
+        {% endfor %}
+    </nav>
+    {% block accounting %}{% endblock %}
+    <footer class="text-muted mt-4 small"><a href="{{ asset('fork-source.tar.gz') }}">{{ 'shift.source'|trans }}</a> · Kimai 2.71.0 · AGPL-3.0 · Europe/Budapest</footer>
+</div>
+{% endblock %}

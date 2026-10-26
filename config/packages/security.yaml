@@ -1,3 +1,6 @@
+parameters:
+    env(KIMAI_COOKIE_PATH): '/'
+
 security:
     password_hashers:
         App\Entity\User: auto
@@ -45,7 +48,7 @@ security:
                 name: KIMAI_REMEMBER
                 secret: '%kernel.secret%_remember_me'
                 lifetime: 604800
-                path: /
+                path: '%env(KIMAI_COOKIE_PATH)%'
                 always_remember_me: true
                 signature_properties: ['id', 'email', 'password', 'signatureDate']
 

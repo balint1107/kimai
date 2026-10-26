@@ -1,0 +1,50 @@
+name: kimai-shifts
+services:
+    app:
+        build:
+            context: ..
+            dockerfile: deploy/Dockerfile
+        image: kimai-shifts:2.71.0-local
+        restart: unless-stopped
+        ports: ['192.168.50.150:8093:8001']
+        environment:
+            APP_ENV: prod
+            APP_SECRET: ${APP_SECRET:?required}
+            DATABASE_URL: mysql://kimai:${DB_PASSWORD:?required}@db:3306/kimai?charset=utf8mb4&serverVersion=11.4.0-MariaDB
+            DEFAULT_URI: https://bgamgee.ddns.net/kimai/
+            KIMAI_COOKIE_PATH: /kimai/
+            TRUSTED_HOSTS: '^bgamgee[.]ddns[.]net$$|^192[.]168[.]50[.]150$$|^127[.]0[.]0[.]1$$|^localhost$$'
+            TRUSTED_PROXIES: 192.168.50.152
+            ADMINMAIL: ${ADMIN_EMAIL:?required}
+            ADMINPASS: ${ADMIN_PASSWORD:?required}
+            MAILER_URL: null://null
+            MAILER_FROM: ${ADMIN_EMAIL:?required}
+            memory_limit: 512M
+        volumes:
+            - app-data:/opt/kimai/var/data
+        tmpfs:
+            - /opt/kimai/var/cache:uid=33,gid=33,mode=0770,size=256m
+        depends_on:
+            db:
+                condition: service_healthy
+        logging:
+            options: {max-size: 10m, max-file: '3'}
+    db:
+        image: mariadb:11.4
+        restart: unless-stopped
+        environment:
+            MARIADB_DATABASE: kimai
+            MARIADB_USER: kimai
+            MARIADB_PASSWORD: ${DB_PASSWORD:?required}
+            MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?required}
+        volumes: ['db-data:/var/lib/mysql']
+        healthcheck:
+            test: ['CMD', 'healthcheck.sh', '--connect', '--innodb_initialized']
+            interval: 10s
+            timeout: 5s
+            retries: 12
+        logging:
+            options: {max-size: 10m, max-file: '3'}
+volumes:
+    app-data:
+    db-data:

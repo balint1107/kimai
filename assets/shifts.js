@@ -1,0 +1,180 @@
+import './shifts.scss';
+import {Calendar, createPlugin} from '@fullcalendar/core';
+import dayGridPlugin from '@fullcalendar/daygrid';
+import timeGridPlugin from '@fullcalendar/timegrid';
+import interactionPlugin from '@fullcalendar/interaction';
+import huLocale from '@fullcalendar/core/locales/hu';
+import {DateTime} from 'luxon';
+
+/** Supplies FullCalendar named-zone calculations using the already installed Luxon library. */
+class BudapestZone {
+    /** Receives the requested IANA zone name from FullCalendar. */
+    constructor(timeZoneName) { this.timeZoneName = timeZoneName; }
+    /** Returns the UTC offset in minutes for FullCalendar's zero-based calendar array. */
+    offsetForArray(a) { return DateTime.fromObject({year:a[0], month:a[1]+1, day:a[2], hour:a[3]||0, minute:a[4]||0, second:a[5]||0}, {zone:this.timeZoneName}).offset; }
+    /** Converts epoch milliseconds into FullCalendar's calendar component array in the requested zone. */
+    timestampToArray(ms) { const d=DateTime.fromMillis(ms,{zone:this.timeZoneName}); return [d.year,d.month-1,d.day,d.hour,d.minute,d.second,d.millisecond]; }
+}
+const zonePlugin = createPlugin({name:'shift-budapest-zone',namedTimeZonedImpl:BudapestZone});
+
+/** Starts the authenticated calendar/report interface after the DOM is ready. */
+function initialize() {
+    const root=document.getElementById('shift-root');
+    if (!root) {return;}
+    const text=JSON.parse(root.dataset.texts), form=document.getElementById('shift-form'), dialog=document.getElementById('shift-dialog');
+    let places=JSON.parse(root.dataset.places), records=[], calendar=null;
+    const money=new Intl.NumberFormat('hu-HU',{style:'currency',currency:'HUF',maximumFractionDigits:0});
+    /** Formats seconds as a duration without wrapping after 24 hours. */
+    const hours=(seconds)=>`${Math.floor(Math.round(seconds/60)/60)}:${String(Math.round(seconds/60)%60).padStart(2,'0')}`;
+    /** Converts an ISO instant into a Budapest datetime-local control value. */
+    const wall=(value)=>value ? DateTime.fromISO(value,{zone:'Europe/Budapest'}).toFormat("yyyy-MM-dd'T'HH:mm") : '';
+    /** Shows a safely escaped error in the selected alert element. */
+    function error(message, id='shift-error') { const el=document.getElementById(id); el.textContent=message; el.classList.remove('d-none'); }
+    /** Sends JSON using the session CSRF token and throws localized server failures. */
+    async function send(url,data) {
+        const response=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':root.dataset.token},body:JSON.stringify(data)});
+        const body=response.headers.get('content-type')?.includes('application/json') ? await response.json() : {error:`HTTP ${response.status}`};
+        if (!response.ok) {throw new Error(body.error || `HTTP ${response.status}`);}
+        return body;
+    }
+    /** Collects the active inclusive-date/report filters for data and exports. */
+    function filters() {
+        const params=new URLSearchParams();
+        for (const key of ['from','to','workplace','category','state']) {
+            const value=document.getElementById(`filter-${key}`)?.value;
+            if (value) {params.set(key,value);}
+        }
+        return params;
+    }
+    /** Fills workplace selectors and editable default buttons without evaluating workplace names as HTML. */
+    function populatePlaces() {
+        for (const select of [form.elements.workplace,document.getElementById('filter-workplace')]) {
+            if (!select) {continue;}
+            const old=select.value; select.replaceChildren();
+            select.add(new Option(select.id==='filter-workplace' ? text.all || 'Mind' : '—',''));
+            for (const place of places) {select.add(new Option(place.name==='Unknown' ? text.unknown : place.name,place.id));}
+            select.value=old;
+        }
+        const list=document.getElementById('workplace-list');
+        if (list) {
+            list.replaceChildren();
+            for (const place of places) {
+                const button=document.createElement('button'); button.className='btn btn-sm'; button.textContent=`${place.name} · ${money.format(place.rate)}/h`;
+                button.style.borderColor=place.color;
+                button.addEventListener('click',()=>{ const target=document.getElementById('workplace-form'); for (const key of ['id','name','rate','category','color']) {target.elements[key].value=place[key];} });
+                list.append(button);
+            }
+        }
+    }
+    /** Renders one aggregate table with escaped cell values, total counts, hours and HUF. */
+    function report(target,rows) {
+        const container=document.getElementById(target); if (!container) {return;}
+        const table=document.createElement('table'); table.className='table table-vcenter';
+        const header=table.createTHead().insertRow();
+        for (const key of ['period','category','state','count','hours','amount']) { const cell=document.createElement('th'); cell.textContent=text[key]; header.append(cell); }
+        const body=table.createTBody();
+        for (const row of rows) {
+            const tr=body.insertRow();
+            for (const value of [row.period,row.category==='Unknown'?text.unknown:row.category,text[row.state],row.count,hours(row.seconds),money.format(row.amount)]) {tr.insertCell().textContent=value;}
+        }
+        container.replaceChildren(table);
+    }
+    /** Reloads data and refreshes reports, totals and calendar; safe for minute-based completion changes. */
+    async function refresh() {
+        if (!document.getElementById('shift-totals')) {return;}
+        try {
+            const params=filters(), response=await fetch(`${root.dataset.dataUrl}?${params}`);
+            if (!response.ok) {throw new Error(`HTTP ${response.status}`);}
+            const data=await response.json(); if (data.error) {throw new Error(data.error);}
+            records=data.events; places=data.places; populatePlaces();
+            const totals=document.getElementById('shift-totals'); totals.replaceChildren();
+            for (const state of ['completed','planned']) {
+                const rows=data.groups.months.filter(row=>row.state===state);
+                const sum=rows.reduce((a,row)=>({count:a.count+row.count,seconds:a.seconds+row.seconds,amount:a.amount+row.amount}),{count:0,seconds:0,amount:0});
+                const card=document.createElement('div'); card.className='col-md-6';
+                const box=document.createElement('div'); box.className='card card-body';
+                const heading=document.createElement('div'); heading.className='text-muted'; heading.textContent=text[state];
+                const amount=document.createElement('div'); amount.className='h1 mb-1'; amount.textContent=money.format(sum.amount);
+                const detail=document.createElement('div'); detail.textContent=`${sum.count} ${text.count} · ${hours(sum.seconds)} ${text.hours}`;
+                box.append(heading,amount,detail); card.append(box); totals.append(card);
+            }
+            report('report-months',data.groups.months); report('report-years',data.groups.years); report('report-workplaces',data.groups.workplaces); report('report-workplace_years',data.groups.workplace_years);
+            if (calendar) { calendar.getEventSources().forEach(source=>source.remove()); calendar.addEventSource(records); }
+            for (const format of ['xlsx','csv']) {document.getElementById(`export-${format}`).href=`${root.dataset[`${format}Url`]}?${params}`;}
+            document.getElementById('shift-error').classList.add('d-none');
+        } catch (e) { error(e.message); }
+    }
+    /** Applies the selected workplace's defaults to a new/changed workplace selection. */
+    function defaults() {
+        const place=places.find(p=>String(p.id)===form.elements.workplace.value);
+        if (place) {form.elements.rate.value=place.rate; form.elements.category.value=place.category;}
+        preview();
+    }
+    /** Recomputes the editor preview in Budapest, including DST elapsed time and overlap warnings. */
+    function preview() {
+        const begin=DateTime.fromISO(form.elements.begin.value,{zone:'Europe/Budapest'}), end=DateTime.fromISO(form.elements.end.value,{zone:'Europe/Budapest'});
+        const seconds=end.diff(begin,'seconds').seconds;
+        document.getElementById('shift-preview').textContent=Number.isFinite(seconds)&&seconds>0 ? `${hours(seconds)} · ${money.format(seconds/3600*Number(form.elements.rate.value))}` : text.invalid_time;
+        const overlap=records.some(r=>String(r.id)!==form.elements.id.value&&!r.cancelled&&DateTime.fromISO(r.start)<end&&DateTime.fromISO(r.end)>begin);
+        document.getElementById('shift-overlap').classList.toggle('d-none',!overlap);
+    }
+    /** Opens an existing record or a new interval, with optional import-review provenance. */
+    function edit(record={}) {
+        form.reset(); populatePlaces();
+        for (const key of ['id','review_item','workplace','rate','category','note']) {if (record[key]!==undefined&&record[key]!==null) {form.elements[key].value=record[key];}}
+        form.elements.begin.value=wall(record.start || record.begin || (record.date ? `${record.date}T08:00` : '')) || DateTime.now().setZone('Europe/Budapest').startOf('hour').toFormat("yyyy-MM-dd'T'HH:mm");
+        form.elements.end.value=wall(record.end) || DateTime.fromISO(form.elements.begin.value,{zone:'Europe/Budapest'}).plus({hours:1}).toFormat("yyyy-MM-dd'T'HH:mm");
+        if (record.review_item && !record.id && !record.begin) { form.elements.begin.value=''; form.elements.end.value=''; }
+        form.elements.cancelled.checked=!!record.cancelled;
+        if (!record.id && record.rate===undefined && places.length) {form.elements.workplace.value=places[0].id; defaults();}
+        form.elements.category.querySelector('[value="Unknown"]').disabled=!record.id&&!record.review_item;
+        document.getElementById('shift-delete').classList.toggle('d-none',!record.id);
+        document.getElementById('shift-editor-error').classList.add('d-none');
+        document.getElementById('shift-editor-title').textContent=record.review_item?`${text.review} · ${record.date || ''}`:text.new_shift;
+        preview(); dialog.showModal();
+    }
+    populatePlaces();
+    document.getElementById('shift-close').addEventListener('click',()=>dialog.close());
+    document.getElementById('shift-new')?.addEventListener('click',()=>edit());
+    form.addEventListener('input',preview); form.elements.workplace.addEventListener('change',defaults);
+    form.addEventListener('submit',async event=>{
+        event.preventDefault(); const button=event.submitter; button.disabled=true;
+        try {const data=Object.fromEntries(new FormData(form)); data.cancelled=form.elements.cancelled.checked; await send(root.dataset.saveUrl,data); dialog.close(); await refresh();} catch(e){error(e.message,'shift-editor-error');} finally {button.disabled=false;}
+    });
+    document.getElementById('shift-delete').addEventListener('click',async()=>{
+        if (!window.confirm(text.delete_confirm)) {return;}
+        try {await send(root.dataset.deleteUrl,{id:form.elements.id.value}); dialog.close(); await refresh();} catch(e){error(e.message,'shift-editor-error');}
+    });
+    document.getElementById('workplace-form')?.addEventListener('submit',async event=>{
+        event.preventDefault(); try {places=await send(root.dataset.workplaceUrl,Object.fromEntries(new FormData(event.target))); event.target.reset(); populatePlaces(); await refresh();} catch(e){error(e.message);}
+    });
+    for (const key of ['from','to','workplace','category','state']) {document.getElementById(`filter-${key}`)?.addEventListener('change',refresh);}
+    document.getElementById('filter-reset')?.addEventListener('click',()=>{for (const key of ['from','to','workplace','category','state']) {document.getElementById(`filter-${key}`).value='';} refresh();});
+    const calendarElement=document.getElementById('shift-calendar');
+    if (calendarElement) {
+        calendar=new Calendar(calendarElement,{
+            plugins:[dayGridPlugin,timeGridPlugin,interactionPlugin,zonePlugin],locale:huLocale,timeZone:'Europe/Budapest',firstDay:1,
+            initialView:window.innerWidth<576?'timeGridDay':'timeGridWeek',height:Math.max(560,window.innerHeight-350),scrollTime:'07:00:00',nowIndicator:true,editable:true,selectable:true,
+            headerToolbar:{left:'prev,next today',center:'title',right:'dayGridMonth,timeGridWeek,timeGridDay'},slotDuration:'00:15:00',snapDuration:'00:15:00',
+            eventTimeFormat:{hour:'2-digit',minute:'2-digit',hour12:false},slotLabelFormat:{hour:'2-digit',minute:'2-digit',hour12:false},
+            dateClick:info=>edit({start:info.dateStr.length===10?`${info.dateStr}T08:00`:info.dateStr}),
+            select:info=>{if(info.view.type!=='dayGridMonth'){edit({start:info.startStr,end:info.endStr});}},
+            eventClick:info=>edit(records.find(r=>String(r.id)===info.event.id)),
+            eventClassNames:info=>[`state-${info.event.extendedProps.state}`],
+            eventContent:info=>{const label=document.createElement('div');label.textContent=`${info.timeText} ${info.event.title} · ${text[info.event.extendedProps.state]}`;return {domNodes:[label]};},
+            eventDidMount:info=>{info.el.title=`${info.event.title} · ${text[info.event.extendedProps.state]} · ${money.format(info.event.extendedProps.amount)}`;},
+            eventDrop:move,eventResize:move,
+        });
+        calendar.render();
+        document.getElementById('calendar-date').addEventListener('change',event=>{if(event.target.value){calendar.gotoDate(event.target.value);}});
+    }
+    /** Saves a drag/resize using ISO instants; reverts the UI when validation or the network fails. */
+    async function move(info) {
+        const record=records.find(r=>String(r.id)===info.event.id);
+        try {await send(root.dataset.saveUrl,{...record,begin:info.event.startStr,end:info.event.endStr}); await refresh();} catch(e){info.revert();error(e.message);}
+    }
+    refresh(); setInterval(refresh,60000);
+    const review=JSON.parse(root.dataset.review || 'null');
+    if (review) {edit(review);}
+}
+if (document.readyState==='loading') {document.addEventListener('DOMContentLoaded',initialize);} else {initialize();}

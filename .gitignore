@@ -60,3 +60,6 @@
 npm-debug.log
 yarn-error.log
 ###< symfony/webpack-encore-bundle ###
+deploy/.env
+deploy/private/
+deploy/source.tar.gz

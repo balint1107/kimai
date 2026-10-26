@@ -1,0 +1,66 @@
+shift.title: Helyettesítések és elszámolás
+shift.subtitle: Munkahelyek, munkaidő és kereset egy helyen
+shift.navigation: Navigáció
+shift.calendar: Naptár
+shift.jump_date: Ugrás dátumra
+shift.summary: Összegzés
+shift.workplaces: Munkahelyek
+shift.imports: Import ellenőrzés
+shift.source: Forráskód
+shift.workplace: Helyszín
+shift.category: EFO/Számla
+shift.rate: Órabér (Ft/óra)
+shift.begin: Kezdete
+shift.end: Vége
+shift.note: Megjegyzés
+shift.state: Állapot
+shift.completed: Teljesített
+shift.planned: Tervezett
+shift.in_progress: Folyamatban
+shift.cancelled: Lemondva
+shift.unknown: Ismeretlen
+shift.new_shift: Új helyettesítés
+shift.save: Mentés
+shift.saved: Mentve
+shift.delete_confirm: Biztosan törlöd ezt a helyettesítést?
+shift.count: alkalom
+shift.hours: óra
+shift.amount: Összeg (Ft)
+shift.period: Időszak
+shift.from: Ettől
+shift.to: Eddig
+shift.all: Mind
+shift.reset: Szűrők törlése
+shift.monthly: Havi összegzés
+shift.yearly: Éves összegzés
+shift.defaults: Munkahely alapértékei
+shift.color: Szín
+shift.new_workplace: Új munkahely
+shift.workplace_totals: Munkahelyenkénti havi összegzés
+shift.upload: Excel importálása
+shift.import_help: Először ellenőrizd az előnézetet. Az import az eredeti időkből és órabérekből számol; az ismételt feltöltés nem hoz létre másolatokat.
+shift.preview: Előnézet
+shift.imported: Importálva
+shift.candidates: Forrásbejegyzések
+shift.commit: Ellenőriztem, importálás
+shift.reconciliation: Egyeztetési jelentés
+shift.source_hours: Forrás órái
+shift.actual_hours: Importált órák
+shift.source_amount: Forrás összege (Ft)
+shift.actual_amount: Importált összeg (Ft)
+shift.review: Ellenőrizendő
+shift.review_help: A hiányos bejegyzések megmaradnak. Időadat nélkül nem számítanak bele az összegzésbe. A javítás az importált adatot módosítja, az eredeti forrásadatot megőrzi.
+shift.overlap: Ez az időpont másik helyettesítéssel átfedésben van. Ellenőrizd az időket; a mentés megengedett.
+shift.invalid_time: Ellenőrizd a kezdő és záró dátumot, az időpontokat és az órabért.
+shift.invalid_rate: Adj meg érvényes, nem negatív órabért és elszámolási típust.
+shift.invalid_workplace: Adj meg érvényes munkahelyet és alapértékeket.
+shift.invalid_workbook: Nem olvasható vagy nem támogatott Excel-fájl. A feltöltési korlát 20 MB.
+shift.not_found: A bejegyzés nem található.
+shift.validation_error: Az adatok nem felelnek meg a munkaidő-bejegyzés szabályainak. Ellenőrizd az időket, a munkahelyet és az órabért.
+shift.flag.missing_date: Hiányzó dátum
+shift.flag.date_mismatch: A dátum eltér a munkalap hónapjától
+shift.flag.missing_workplace: Hiányzó helyszín
+shift.flag.missing_category: Hiányzó EFO/Számla típus
+shift.flag.missing_or_invalid_time: Hiányzó vagy hibás időpont
+shift.flag.missing_rate: Hiányzó órabér
+shift.flag.missing_shift: Nincs kapcsolódó munkaidő-bejegyzés

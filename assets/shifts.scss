@@ -1,0 +1,18 @@
+.shift-app { max-width: 1500px; margin: 0 auto; }
+body:has(.shift-app) .navbar-vertical { display: none; }
+body:has(.shift-app) .page > header.navbar { display: none !important; }
+body:has(.shift-app) .page-header { display: none; }
+body:has(.shift-app) .page-wrapper { margin-left: 0 !important; }
+.shift-dialog { border: 0; border-radius: 12px; width: min(620px, 96vw); max-height: 94dvh; overflow: auto; padding: 24px; box-shadow: 0 20px 80px #0004; }
+.shift-dialog::backdrop { background: #16243a80; }
+.shift-app th, .shift-app td { white-space: nowrap; }
+.shift-app .fc-event { cursor: pointer; }
+.shift-app .fc .fc-toolbar { flex-wrap: wrap; gap: 8px; }
+.shift-app .fc-event.state-planned, .shift-app .fc-event.state-in_progress { border-style: dashed; }
+.shift-app .fc-event.state-cancelled { opacity: .65; text-decoration: line-through; }
+@media (max-width: 575px) {
+    .shift-dialog { width: 100vw; max-width: 100vw; height: 100dvh; max-height: 100dvh; border-radius: 0; margin: 0; }
+    .shift-app .card-body { padding: 12px; }
+    .shift-app .fc .fc-toolbar-title { font-size: 1.1rem; }
+    .shift-app .fc .fc-button { padding: .3em .45em; }
+}
