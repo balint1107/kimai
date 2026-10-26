@@ -47,6 +47,13 @@ function initialize() {
         }
         return params;
     }
+    /** Defaults report dates to the current Budapest year; calendar dates remain unrestricted. */
+    function defaultReportDates() {
+        if (!['summary','workplaces'].includes(root.dataset.tab)) {return;}
+        const year=DateTime.now().setZone('Europe/Budapest').year;
+        document.getElementById('filter-from').value=`${year}-01-01`;
+        document.getElementById('filter-to').value=`${year}-12-31`;
+    }
     /** Fills workplace selectors, preserving IDs; workplace reports require one explicit selection. */
     function populatePlaces() {
         for (const select of [form.elements.workplace,document.getElementById('filter-workplace')]) {
@@ -221,7 +228,7 @@ function initialize() {
     document.getElementById('workplace-edit')?.addEventListener('click',()=>editWorkplace(places.find(place=>String(place.id)===document.getElementById('filter-workplace').value)));
     document.getElementById('workplace-close')?.addEventListener('click',()=>document.getElementById('workplace-dialog').close());
     for (const key of ['from','to','workplace','category','state']) {document.getElementById(`filter-${key}`)?.addEventListener('change',refresh);}
-    document.getElementById('filter-reset')?.addEventListener('click',()=>{for (const key of ['from','to','workplace','category','state']) {document.getElementById(`filter-${key}`).value='';} refresh();});
+    document.getElementById('filter-reset')?.addEventListener('click',()=>{for (const key of ['from','to','workplace','category','state']) {document.getElementById(`filter-${key}`).value='';} defaultReportDates(); refresh();});
     const timeOffForm=document.getElementById('time-off-form');
     document.getElementById('time-off-new')?.addEventListener('click',()=>editTimeOff());
     document.getElementById('time-off-close')?.addEventListener('click',()=>document.getElementById('time-off-dialog').close());
@@ -268,7 +275,7 @@ function initialize() {
         const record=records.find(r=>String(r.id)===info.event.id);
         try {await send(root.dataset.saveUrl,{...record,begin:info.event.startStr,end:info.event.endStr}); await refresh();} catch(e){info.revert();error(e.message);}
     }
-    refresh(); setInterval(refresh,60000);
+    defaultReportDates(); refresh(); setInterval(refresh,60000);
     const review=JSON.parse(root.dataset.review || 'null');
     if (review) {edit(review);}
 }

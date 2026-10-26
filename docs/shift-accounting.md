@@ -29,6 +29,12 @@ This is an earnings register; categories do not implement taxes or statutory inv
 
 ## Summary layout
 
+Összegzés and Munkahelyek initially filter January 1–December 31 of the current
+Europe/Budapest year. Reset restores this range while clearing other filters (including
+the workplace selection). Dates remain editable or clearable for historical/all-time
+reports and exports. Calendar filters still start unrestricted. Minute refreshes
+preserve the user's chosen range; reopening either report uses the current year.
+
 Monthly and yearly summaries have one row per period. EFO and Számla are major
 column groups, each with Alkalom, Óra and Összeg subcolumns. Every cell displays
 `completed / total`, where total includes completed plus planned/in-progress work.
@@ -73,7 +79,7 @@ owner-checked, dates validated and whole-day exclusive ends derived server-side.
 Munkahelyek requires a single workplace selection; there is no All option. Until
 selected, reports/cards stay empty and export links are disabled. Monthly and yearly
 tables reuse the compact EFO/Számla completed/total layout with a pinned Időszak column.
-Reset clears the selection. Other tabs retain their optional workplace filter.
+Reset clears the selection and restores the current-year date range. Other tabs retain their optional workplace filter.
 Új munkahely opens an empty creation dialog; Edit workplace opens the selected
 workplace's defaults. Saving selects the saved workplace and refreshes its reports.
 Validation failures stay in the dialog without losing input. No existing shift rates
