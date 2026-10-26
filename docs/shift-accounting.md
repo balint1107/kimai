@@ -43,6 +43,7 @@ keyboard focus as well as touch/trackpad scrolling.
 
 The current Budapest month is highlighted green in Summary and Workplace monthly
 tables, including the sticky period cell. Other periods keep their normal background.
+Green highlighting is limited to these report rows; the calendar has no green today outline.
 
 ## Calendar day markers and personal holidays
 
