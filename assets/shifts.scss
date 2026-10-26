@@ -10,6 +10,8 @@ body:has(.shift-app) .page-wrapper { margin-left: 0 !important; }
 .shift-app .fc-event-main, .shift-app .fc-event-main-frame { min-width: 0; overflow: hidden; }
 .shift-app .shift-event-label { min-width: 0; max-width: 100%; white-space: normal; overflow-wrap: anywhere; line-height: 1.2; }
 .shift-app .fc-daygrid-dot-event { align-items: flex-start; }
+.shift-app .fc .fc-timegrid-slot { height: 2.5rem; }
+.shift-app .fc .fc-timegrid-axis-cushion { max-width: none; }
 .shift-app .fc .fc-toolbar { flex-wrap: wrap; gap: 8px; }
 .shift-app .fc-event.state-cancelled { opacity: .65; text-decoration: line-through; }
 .shift-summary-table th, .shift-summary-table td { text-align: right; }

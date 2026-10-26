@@ -53,7 +53,10 @@ Green highlighting is limited to these report rows; the calendar has no green to
 
 ## Calendar day markers and personal holidays
 
-Day/week time grids use one-hour slots and labels. Drag/resize retains 15-minute
+Day/week time grids use one-hour slots and labels. Each hourly row is at least
+2.5rem (40px at the default font size); remaining vertical space expands all rows
+evenly instead of leaving an oversized blank area below 23:00. Headers and body
+columns stay aligned, and the all-day axis label can use its full width. Drag/resize retains 15-minute
 precision, and saved shift times are unchanged. Event labels wrap inside their cards,
 including long workplace names and personal-holiday notes; short cards clip vertically
 rather than spilling outside, with the existing tooltip showing the full label.
