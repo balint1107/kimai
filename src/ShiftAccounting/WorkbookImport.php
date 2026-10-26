@@ -122,11 +122,11 @@ final class WorkbookImport
                     if ($begin === null || $end === null || $end <= $begin) {
                         $flags[] = 'missing_or_invalid_time';
                     }
-                    if ($rate === null || $rate < 0) {
+                    if ($rate === null || !is_finite($rate) || $rate < 0 || floor($rate) !== $rate) {
                         $flags[] = 'missing_rate';
                     }
                     $timed = $date !== null && $begin !== null && $end !== null && $end > $begin && $rate !== null && $rate >= 0;
-                    $usable = $timed && $workplace !== '' && !\in_array(mb_strtolower($workplace), ['unknown', 'ismeretlen'], true) && \in_array($category, ShiftService::CATEGORIES, true);
+                    $usable = $timed && $rate !== null && is_finite($rate) && floor($rate) === $rate && $workplace !== '' && !\in_array(mb_strtolower($workplace), ['unknown', 'ismeretlen'], true) && \in_array($category, ShiftService::CATEGORIES, true);
                     $seconds = $timed ? (int) round(($end - $begin) * 86400) : 0;
                     $result[] = [
                         'coordinate' => $sheet->getTitle() . ':' . $r . ':' . $column,
@@ -206,7 +206,7 @@ final class WorkbookImport
             }
             foreach ($this->items($batch) as $item) {
                 $data = $item->payload;
-                if (!$data['usable'] || !\in_array($data['category'], ShiftService::CATEGORIES, true) || \in_array(mb_strtolower($data['workplace']), ['unknown', 'ismeretlen', ''], true)) {
+                if (!$data['usable'] || $data['rate'] === null || !is_finite($data['rate']) || floor($data['rate']) !== (float) $data['rate'] || !\in_array($data['category'], ShiftService::CATEGORIES, true) || \in_array(mb_strtolower($data['workplace']), ['unknown', 'ismeretlen', ''], true)) {
                     continue;
                 }
                 if (!isset($places[$data['workplace']])) {

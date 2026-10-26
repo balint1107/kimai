@@ -56,7 +56,7 @@ shift.review: Needs review
 shift.review_help: Incomplete entries are retained. Entries without usable times are excluded from accounting. Corrections update imported records while retaining original source data.
 shift.overlap: This interval overlaps another shift. Check the times; saving is allowed.
 shift.invalid_time: Check the start/end dates, times and hourly rate.
-shift.invalid_rate: Enter a valid nonnegative rate and settlement category.
+shift.invalid_rate: Enter a nonnegative whole-forint hourly rate and a valid settlement category.
 shift.invalid_workplace: Enter a valid workplace and defaults.
 shift.invalid_workbook: Unreadable or unsupported workbook. Maximum upload size is 20 MB.
 shift.not_found: Record not found.
@@ -66,5 +66,5 @@ shift.flag.date_mismatch: Date differs from worksheet month
 shift.flag.missing_workplace: Missing workplace
 shift.flag.missing_category: Missing settlement category
 shift.flag.missing_or_invalid_time: Missing or invalid time
-shift.flag.missing_rate: Missing rate
+shift.flag.missing_rate: Missing or non-whole-forint hourly rate
 shift.flag.missing_shift: No linked shift

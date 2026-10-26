@@ -56,7 +56,7 @@ shift.review: Ellenőrizendő
 shift.review_help: A hiányos bejegyzések megmaradnak. Időadat nélkül nem számítanak bele az összegzésbe. A javítás az importált adatot módosítja, az eredeti forrásadatot megőrzi.
 shift.overlap: Ez az időpont másik helyettesítéssel átfedésben van. Ellenőrizd az időket; a mentés megengedett.
 shift.invalid_time: Ellenőrizd a kezdő és záró dátumot, az időpontokat és az órabért.
-shift.invalid_rate: Adj meg érvényes, nem negatív órabért és elszámolási típust.
+shift.invalid_rate: Az órabér nem negatív, egész forintösszeg legyen. Válassz érvényes elszámolási típust.
 shift.invalid_workplace: Adj meg érvényes munkahelyet és alapértékeket.
 shift.invalid_workbook: Nem olvasható vagy nem támogatott Excel-fájl. A feltöltési korlát 20 MB.
 shift.not_found: A bejegyzés nem található.
@@ -66,5 +66,5 @@ shift.flag.date_mismatch: A dátum eltér a munkalap hónapjától
 shift.flag.missing_workplace: Hiányzó helyszín
 shift.flag.missing_category: Hiányzó EFO/Számla típus
 shift.flag.missing_or_invalid_time: Hiányzó vagy hibás időpont
-shift.flag.missing_rate: Hiányzó órabér
+shift.flag.missing_rate: Hiányzó vagy nem egész forintösszegű órabér
 shift.flag.missing_shift: Nincs kapcsolódó munkaidő-bejegyzés

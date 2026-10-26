@@ -4,6 +4,9 @@ Based on Kimai 2.71.0. The single-user Hungarian interface uses HUF, Budapest ti
 Monday-first weeks and a calendar editor. Navigate between Calendar, Summary,
 Workplaces and Import review. Workplace defaults apply only when creating a new
 shift or explicitly selecting another workplace; saved hourly rates remain fixed.
+Hourly rates and workplace rate defaults accept nonnegative whole forints only
+(input step 1, enforced server-side). Fractional imported rates remain in review,
+without silently rounding their source values. Earnings can still reflect partial hours.
 
 Each workplace owns one managed `Shifts` project. Activities must be `EFO` or `Számla`.
 Blank/Unknown/Ismeretlen workplaces and unknown categories cannot be saved. Legacy

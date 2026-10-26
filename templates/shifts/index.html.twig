@@ -33,7 +33,7 @@
             <h2>{{ 'shift.defaults'|trans }}</h2>
             <form id="workplace-form" class="d-flex gap-2 flex-wrap align-items-end">
                 <input name="id" type="hidden"><label>{{ 'shift.workplace'|trans }}<input name="name" class="form-control" required maxlength="150"></label>
-                <label>{{ 'shift.rate'|trans }}<input name="rate" class="form-control" type="number" min="0" step="0.01" required></label>
+                <label>{{ 'shift.rate'|trans }}<input name="rate" class="form-control" type="number" min="0" step="1" required></label>
                 <label>{{ 'shift.category'|trans }}<select name="category" class="form-select"><option>EFO</option><option>Számla</option></select></label>
                 <label>{{ 'shift.color'|trans }}<input name="color" class="form-control form-control-color" type="color" value="#206bc4"></label>
                 <button class="btn btn-primary">{{ 'shift.save'|trans }}</button><button class="btn" type="reset">{{ 'shift.new_workplace'|trans }}</button>
@@ -60,7 +60,7 @@
                 <label class="col-12">{{ 'shift.workplace'|trans }}<select name="workplace" class="form-select" required></select></label>
                 <label class="col-sm-6">{{ 'shift.begin'|trans }}<input name="begin" type="datetime-local" class="form-control" required step="60"></label>
                 <label class="col-sm-6">{{ 'shift.end'|trans }}<input name="end" type="datetime-local" class="form-control" required step="60"></label>
-                <label class="col-sm-6">{{ 'shift.rate'|trans }}<input name="rate" type="number" class="form-control" min="0" step="0.01" required></label>
+                <label class="col-sm-6">{{ 'shift.rate'|trans }}<input name="rate" type="number" class="form-control" min="0" step="1" required></label>
                 <label class="col-sm-6">{{ 'shift.category'|trans }}<select name="category" class="form-select" required><option value="">—</option><option>EFO</option><option>Számla</option></select></label>
                 <label class="col-12">{{ 'shift.note'|trans }}<textarea name="note" class="form-control" maxlength="2000"></textarea></label>
                 <label class="col-12"><input name="cancelled" type="checkbox" class="form-check-input"> {{ 'shift.cancelled'|trans }}</label>

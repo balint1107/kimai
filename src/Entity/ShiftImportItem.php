@@ -13,7 +13,7 @@ use Doctrine\ORM\Mapping as ORM;
 
 /**
  * Retains normalized source data and resolution state, even when a shift cannot be created.
- * @phpstan-type SourceRow array{coordinate:string,date:string|null,workplace:string,begin:string,end:string,rate:float|null,category:string,flags:list<string>,usable:bool,source_seconds:int,source_amount:float|int,raw:array<string,mixed>}
+ * @phpstan-type SourceRow array{coordinate:string,date:string|null,workplace:string,begin:string,end:string,rate:int|float|null,category:string,flags:list<string>,usable:bool,source_seconds:int,source_amount:float|int,raw:array<string,mixed>}
  */
 #[ORM\Entity]
 #[ORM\Table(name: 'shift_import_item')]

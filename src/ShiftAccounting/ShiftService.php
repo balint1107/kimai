@@ -51,11 +51,11 @@ final class ShiftService
         return $result;
     }
 
-    /** Creates or updates $name with nonnegative HUF/hour $rate and $category; returns its customer. */
+    /** Creates or updates $name with a nonnegative whole-HUF/hour $rate and $category; returns its customer. */
     public function workplace(string $name, float $rate = 0, string $category = 'EFO', ?string $color = null, ?int $id = null): Customer
     {
         $name = trim($name);
-        if (!$this->knownWorkplace($name) || mb_strlen($name) > 150 || !is_finite($rate) || $rate < 0 || !\in_array($category, self::CATEGORIES, true)) {
+        if (!$this->knownWorkplace($name) || mb_strlen($name) > 150 || !is_finite($rate) || $rate < 0 || floor($rate) !== $rate || !\in_array($category, self::CATEGORIES, true)) {
             throw new \InvalidArgumentException('shift.invalid_workplace');
         }
         $customer = $id === null ? $this->em->getRepository(Customer::class)->findOneBy(['name' => $name]) : $this->em->find(Customer::class, $id);
@@ -127,7 +127,7 @@ final class ShiftService
         return $date;
     }
 
-    /** Saves known workplace/category $data for $owner through Kimai; $existing must belong to that owner.
+    /** Saves known workplace/category $data with a whole-HUF hourly rate; $existing must belong to $owner.
      * @param array<string, mixed> $data
      */
     public function save(User $owner, array $data, ?Timesheet $existing = null): Timesheet
@@ -148,10 +148,13 @@ final class ShiftService
             throw new \InvalidArgumentException('shift.invalid_rate');
         }
         $rate = (float) $data['rate'];
+        if (!is_finite($rate) || $rate < 0 || floor($rate) !== $rate) {
+            throw new \InvalidArgumentException('shift.invalid_rate');
+        }
         $begin = $this->date(\is_string($data['begin'] ?? null) ? $data['begin'] : '');
         $end = $this->date(\is_string($data['end'] ?? null) ? $data['end'] : '');
         $note = $data['note'] ?? '';
-        if (!\is_string($note) || !is_finite($rate) || $rate < 0 || $end <= $begin || mb_strlen($note) > 2000) {
+        if (!\is_string($note) || $end <= $begin || mb_strlen($note) > 2000) {
             throw new \InvalidArgumentException('shift.invalid_time');
         }
         $timesheet = $existing ?? $this->timesheets->createNewTimesheet($owner);
