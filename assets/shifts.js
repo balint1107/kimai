@@ -262,9 +262,11 @@ function initialize() {
             dayCellDidMount:info=>{const marker=dayMarker(info.date);if(marker.label){info.el.title=marker.label;}},
             dayHeaderDidMount:info=>{const marker=dayMarker(info.date);if(marker.label){info.el.title=marker.label;}},
             datesSet:info=>{document.getElementById('calendar-swap-notice').classList.toggle('d-none',dayMarker(info.start).known&&dayMarker(new Date(info.end.valueOf()-1)).known);},
-            eventClassNames:info=>[`state-${info.event.extendedProps.state}`],
-            eventContent:info=>{const label=document.createElement('div');label.className='shift-event-label';label.textContent=info.event.extendedProps.kind==='time_off'?`${info.timeText} ${text.time_off}${info.event.title?' · '+info.event.title:''}`:`${info.timeText} ${info.event.title} · ${text[info.event.extendedProps.state]}`;return {domNodes:[label]};},
-            eventDidMount:info=>{info.el.title=info.event.extendedProps.kind==='time_off'?`${text.time_off} · ${info.event.title}`:`${info.event.title} · ${text[info.event.extendedProps.state]} · ${money.format(info.event.extendedProps.amount)}`;},
+            eventClassNames:info=>info.event.extendedProps.state==='cancelled'?['state-cancelled']:[],
+            /** Returns wrapped text nodes for FullCalendar info; only cancellation needs a state label. */
+            eventContent:info=>{const label=document.createElement('div');label.className='shift-event-label';label.textContent=info.event.extendedProps.kind==='time_off'?`${info.timeText} ${text.time_off}${info.event.title?' · '+info.event.title:''}`:`${info.timeText} ${info.event.title}${info.event.extendedProps.state==='cancelled'?' · '+text.cancelled:''}`;return {domNodes:[label]};},
+            /** Sets info.el's full tooltip, keeping completion/planning state exclusive to reports. */
+            eventDidMount:info=>{info.el.title=info.event.extendedProps.kind==='time_off'?`${text.time_off} · ${info.event.title}`:`${info.event.title}${info.event.extendedProps.state==='cancelled'?' · '+text.cancelled:''} · ${money.format(info.event.extendedProps.amount)}`;},
             eventDrop:move,eventResize:move,
         });
         calendar.render();
