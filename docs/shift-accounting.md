@@ -53,6 +53,11 @@ Green highlighting is limited to these report rows; the calendar has no green to
 
 ## Calendar day markers and personal holidays
 
+Day/week time grids use one-hour slots and labels. Drag/resize retains 15-minute
+precision, and saved shift times are unchanged. Event labels wrap inside their cards,
+including long workplace names and personal-holiday notes; short cards clip vertically
+rather than spilling outside, with the existing tooltip showing the full label.
+
 The calendar uses gray for weekends, red for Hungarian public holidays, amber for
 substitute workdays, blue for substitute rest days and purple for personal time off.
 A text legend and date tooltips explain each color. Substitute working Saturdays

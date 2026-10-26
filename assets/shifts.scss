@@ -6,7 +6,10 @@ body:has(.shift-app) .page-wrapper { margin-left: 0 !important; }
 .shift-dialog { border: 0; border-radius: 12px; width: min(620px, 96vw); max-height: 94dvh; overflow: auto; padding: 24px; box-shadow: 0 20px 80px #0004; }
 .shift-dialog::backdrop { background: #16243a80; }
 .shift-app th, .shift-app td { white-space: nowrap; }
-.shift-app .fc-event { cursor: pointer; }
+.shift-app .fc-event { cursor: pointer; min-width: 0; white-space: normal; overflow: hidden; }
+.shift-app .fc-event-main, .shift-app .fc-event-main-frame { min-width: 0; overflow: hidden; }
+.shift-app .shift-event-label { min-width: 0; max-width: 100%; white-space: normal; overflow-wrap: anywhere; line-height: 1.2; }
+.shift-app .fc-daygrid-dot-event { align-items: flex-start; }
 .shift-app .fc .fc-toolbar { flex-wrap: wrap; gap: 8px; }
 .shift-app .fc-event.state-planned, .shift-app .fc-event.state-in_progress { border-style: dashed; }
 .shift-app .fc-event.state-cancelled { opacity: .65; text-decoration: line-through; }

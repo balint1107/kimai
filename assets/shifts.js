@@ -252,7 +252,7 @@ function initialize() {
         calendar=new Calendar(calendarElement,{
             plugins:[dayGridPlugin,timeGridPlugin,interactionPlugin,zonePlugin],locale:huLocale,timeZone:'Europe/Budapest',firstDay:1,
             initialView:window.innerWidth<576?'timeGridDay':'timeGridWeek',height:Math.max(560,window.innerHeight-350),scrollTime:'07:00:00',nowIndicator:true,editable:true,selectable:true,
-            headerToolbar:{left:'prev,next today',center:'title',right:'dayGridMonth,timeGridWeek,timeGridDay'},slotDuration:'00:15:00',snapDuration:'00:15:00',
+            headerToolbar:{left:'prev,next today',center:'title',right:'dayGridMonth,timeGridWeek,timeGridDay'},slotDuration:'01:00:00',slotLabelInterval:'01:00:00',snapDuration:'00:15:00',
             eventTimeFormat:{hour:'2-digit',minute:'2-digit',hour12:false},slotLabelFormat:{hour:'2-digit',minute:'2-digit',hour12:false},
             dateClick:info=>edit({start:info.dateStr.length===10?`${info.dateStr}T08:00`:info.dateStr}),
             select:info=>{if(info.view.type!=='dayGridMonth'){edit({start:info.startStr,end:info.endStr});}},
@@ -263,7 +263,7 @@ function initialize() {
             dayHeaderDidMount:info=>{const marker=dayMarker(info.date);if(marker.label){info.el.title=marker.label;}},
             datesSet:info=>{document.getElementById('calendar-swap-notice').classList.toggle('d-none',dayMarker(info.start).known&&dayMarker(new Date(info.end.valueOf()-1)).known);},
             eventClassNames:info=>[`state-${info.event.extendedProps.state}`],
-            eventContent:info=>{const label=document.createElement('div');label.textContent=info.event.extendedProps.kind==='time_off'?`${info.timeText} ${text.time_off}${info.event.title?' · '+info.event.title:''}`:`${info.timeText} ${info.event.title} · ${text[info.event.extendedProps.state]}`;return {domNodes:[label]};},
+            eventContent:info=>{const label=document.createElement('div');label.className='shift-event-label';label.textContent=info.event.extendedProps.kind==='time_off'?`${info.timeText} ${text.time_off}${info.event.title?' · '+info.event.title:''}`:`${info.timeText} ${info.event.title} · ${text[info.event.extendedProps.state]}`;return {domNodes:[label]};},
             eventDidMount:info=>{info.el.title=info.event.extendedProps.kind==='time_off'?`${text.time_off} · ${info.event.title}`:`${info.event.title} · ${text[info.event.extendedProps.state]} · ${money.format(info.event.extendedProps.amount)}`;},
             eventDrop:move,eventResize:move,
         });
