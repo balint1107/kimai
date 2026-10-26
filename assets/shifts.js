@@ -79,7 +79,7 @@ function initialize() {
         }
         container.replaceChildren(table);
     }
-    /** Reloads data and refreshes reports, totals and calendar; safe for minute-based completion changes. */
+    /** Reloads reports/calendar and current-Budapest-month cards; minute refreshes also advance completion and month boundaries. */
     async function refresh() {
         if (!document.getElementById('shift-totals')) {return;}
         try {
@@ -87,13 +87,16 @@ function initialize() {
             if (!response.ok) {throw new Error(`HTTP ${response.status}`);}
             const data=await response.json(); if (data.error) {throw new Error(data.error);}
             records=data.events; places=data.places; populatePlaces();
+            const currentMonth=DateTime.now().setZone('Europe/Budapest');
+            const monthKey=currentMonth.toFormat('yyyy-MM');
+            const monthLabel=currentMonth.setLocale('hu').toFormat('yyyy. LLLL');
             const totals=document.getElementById('shift-totals'); totals.replaceChildren();
             for (const state of ['completed','planned']) {
-                const rows=data.groups.months.filter(row=>row.state===state);
+                const rows=data.groups.months.filter(row=>row.state===state && row.period===monthKey);
                 const sum=rows.reduce((a,row)=>({count:a.count+row.count,seconds:a.seconds+row.seconds,amount:a.amount+row.amount}),{count:0,seconds:0,amount:0});
                 const card=document.createElement('div'); card.className='col-md-6';
                 const box=document.createElement('div'); box.className='card card-body';
-                const heading=document.createElement('div'); heading.className='text-muted'; heading.textContent=text[state];
+                const heading=document.createElement('div'); heading.className='text-muted'; heading.textContent=`${text[state]} · ${monthLabel}`;
                 const amount=document.createElement('div'); amount.className='h1 mb-1'; amount.textContent=money.format(sum.amount);
                 const detail=document.createElement('div'); detail.textContent=`${sum.count} ${text.count} · ${hours(sum.seconds)} ${text.hours}`;
                 box.append(heading,amount,detail); card.append(box); totals.append(card);

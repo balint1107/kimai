@@ -15,6 +15,11 @@ the Budapest start date determines its report month/year, including overnight wo
 Planned/in-progress earnings are expected income. After the end timestamp passes,
 the whole shift automatically becomes completed. Cancellation excludes a record
 from all accounting aggregates. The UI refreshes every minute and after edits.
+The Completed/Planned headline cards show only the current calendar month in
+Europe/Budapest and include the month in their labels. Selected filters still apply;
+historical report tables and exports retain their selected date ranges. Calendar
+navigation does not change the headline month. The cards advance automatically
+when the month changes during a minute refresh.
 This is an earnings register; categories do not implement taxes or statutory invoices.
 
 ## Workbook import
