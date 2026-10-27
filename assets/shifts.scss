@@ -22,10 +22,8 @@ body:has(.shift-app) .page-wrapper { margin-left: 0 !important; }
 #shift-calendar.shift-three-days .fc-view-harness.shift-selecting { cursor: crosshair; }
 #shift-calendar.shift-three-days .fc-timegrid-slots { z-index: auto; }
 #shift-calendar.shift-three-days .fc-timegrid-axis,
-#shift-calendar.shift-three-days .fc-timegrid-slot-label { position: relative; z-index: 5; transform: translateX(var(--shift-calendar-pan, 0px)); }
-#shift-calendar.shift-three-days th.fc-timegrid-axis,
-#shift-calendar.shift-three-days .fc-timegrid-axis:has(.fc-timegrid-axis-cushion),
-#shift-calendar.shift-three-days .fc-timegrid-slot-label { background: var(--tblr-bg-surface, #fff); }
+#shift-calendar.shift-three-days .fc-timegrid-slot-label { position: relative; z-index: 100; transform: translateX(var(--shift-calendar-pan, 0px)); background: var(--tblr-bg-surface, #fff); }
+#shift-calendar.shift-three-days .fc-timegrid-slot-label { z-index: 101; }
 .shift-app .fc-event.state-cancelled { opacity: .65; text-decoration: line-through; }
 .shift-summary-table th, .shift-summary-table td { text-align: right; }
 .shift-summary-table thead tr:first-child th:first-child, .shift-summary-table tbody td:first-child { text-align: left; }

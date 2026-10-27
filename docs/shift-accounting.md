@@ -55,7 +55,9 @@ Green highlighting is limited to these report rows; the calendar has no green to
 
 When the calendar area is narrower than 768 CSS pixels, week/month views display
 three day columns at once. Drag horizontally (mouse or touch) to reveal the remaining
-days; the toolbar and week time labels stay in place. The grid also supports normal horizontal trackpad
+days; the toolbar and week time labels stay in place. The all-day/time axis is an
+opaque full-height column above scrolling events, with hour labels on top, so cards
+and their borders cannot show through it. The grid also supports normal horizontal trackpad
 scrolling and keyboard scrolling when focused. The initial mobile view is now week.
 Tap/click and release without moving opens the event editor. A short hold followed by
 dragging scrolls horizontally and/or vertically; after the grid reaches its vertical
