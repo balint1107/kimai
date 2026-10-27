@@ -278,7 +278,7 @@ final class CalendarSync
         return $date >= $connection->settings['from'] && $date <= $connection->settings['to'];
     }
 
-    /** Pulls every page before advancing $calendar's cursor; recurring masters expand only inside the finite configured range.
+    /** Pulls pages before advancing $calendar's cursor; cancelled masters are retired and active series expand inside the configured range.
      * @param list<Place> $places
      */
     private function pull(ShiftCalendarConnection $connection, string $calendar, bool $preview, array $places): void
@@ -306,20 +306,20 @@ final class CalendarSync
                 if (isset($event['id'])) {
                     $seenEvents[$event['id']] = true;
                 }
-                if (isset($event['recurrence'])) {
+                if (($event['status'] ?? '') === 'cancelled' && (isset($masters[$event['id']]) || isset($event['recurrence']))) {
+                    unset($masters[$event['id']]);
+                    foreach ($this->links($connection) as $link) {
+                        if ($link->calendarId === $calendar && ($link->remote['recurringEventId'] ?? null) === $event['id']) {
+                            $this->receive($connection, $calendar, ['id' => $link->eventId, 'status' => 'cancelled'], $places, $preview);
+                        }
+                    }
+                } elseif (isset($event['recurrence'])) {
                     try {
                         if ($this->mapper->incoming($event, $places, $connection->settings['aliases']) !== null) {
                             $masters[$event['id']] = true;
                         }
                     } catch (\Exception) {
                         $masters[$event['id']] = true;
-                    }
-                } elseif (isset($masters[$event['id']]) && ($event['status'] ?? '') === 'cancelled') {
-                    unset($masters[$event['id']]);
-                    foreach ($this->links($connection) as $link) {
-                        if ($link->calendarId === $calendar && ($link->remote['recurringEventId'] ?? null) === $event['id']) {
-                            $this->receive($connection, $calendar, ['id' => $link->eventId, 'status' => 'cancelled'], $places, $preview);
-                        }
                     }
                 } else {
                     $this->receive($connection, $calendar, $event, $places, $preview);
@@ -415,7 +415,7 @@ final class CalendarSync
         $this->em->flush();
     }
 
-    /** Flushes retryable pending operations with ETag checks, stable insert IDs and bounded exponential backoff. */
+    /** Flushes pending operations with ETag checks, explicit whole-day/timed field clearing, stable insert IDs and bounded backoff. */
     private function push(ShiftCalendarConnection $connection): void
     {
         $places = array_column($this->places(), 'name', 'id');
@@ -474,7 +474,7 @@ final class CalendarSync
                         }
                     } else {
                         $payload['extendedProperties'] = ['private' => ($payload['extendedProperties']['private'] ?? []) + ($link->remote['extendedProperties']['private'] ?? [])];
-                        $link->remote = $this->google->request($connection, 'PATCH', $path . '/' . rawurlencode($link->eventId), $payload, ['sendUpdates' => 'none'], $link->remote['etag'] ?? null);
+                        $link->remote = $this->google->request($connection, 'PATCH', $path . '/' . rawurlencode($link->eventId), $this->mapper->patchDates($payload, $link->remote), ['sendUpdates' => 'none'], $link->remote['etag'] ?? null);
                     }
                     $link->baseline = $value;
                 }

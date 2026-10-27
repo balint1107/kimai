@@ -162,6 +162,28 @@ final class EventMapper
         return ['summary' => $shift ? (($value['cancelled'] ?? false) ? '[Törölt] ' : '') . $placeName . ' · ' . ($value['category'] ?? '') : ($value['title'] ?? ''), 'start' => $date($value['begin']), 'end' => $date($value['end']), 'description' => implode("\n", $lines) . "\n\n" . $value['note'], 'extendedProperties' => ['private' => ['kimai_link' => $linkId, 'kimai_schema' => '1']]];
     }
 
+    /** Clears obsolete date fields when PATCH changes between whole-day and timed $payload; $previous is the last Google event.
+     * @param GoogleEvent $payload
+     * @param GoogleEvent $previous
+     * @return array<string, mixed>
+     */
+    public function patchDates(array $payload, array $previous): array
+    {
+        /** @var array<string, mixed> $body */
+        $body = $payload;
+        if (isset($previous['start']['date']) && isset($payload['start']['dateTime'])) {
+            foreach (['start', 'end'] as $field) {
+                $body[$field] = ($payload[$field] ?? []) + ['date' => null];
+            }
+        } elseif (isset($previous['start']['dateTime']) && isset($payload['start']['date'])) {
+            foreach (['start', 'end'] as $field) {
+                $body[$field] = ($payload[$field] ?? []) + ['dateTime' => null, 'timeZone' => null];
+            }
+        }
+
+        return $body;
+    }
+
     /** Merges $local/$remote against $base; returns merged data and names of fields changed incompatibly.
      * @param Value $base
      * @param Value $local

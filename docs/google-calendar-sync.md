@@ -133,5 +133,26 @@ and deleted via the connected Calendar transport; real payloads exercised the ne
 and native services in a disposable database. Cleanup was verified by deleted status
 and an empty follow-up search. Production accounting remained 749 active records plus
 18 complete cancelled historical records (784 total native rows including legacy drafts).
-Unattended server OAuth and actual phone-to-server acceptance remain pending the user's
-OAuth client setup and consent; no connection is enabled by default.
+This initial validation preceded server authorization. Subsequent live activation is
+recorded below; physical phone entry itself has not been observed.
+
+Switching holidays/general events between whole-day and timed mode explicitly clears
+the old Google date/dateTime/timeZone fields in PATCH requests. This prevents Google
+from rejecting a valid change because both boundary representations remain present.
+
+## Live activation on 2026-10-27
+
+The dedicated private Helyettesítések calendar uses Europe/Budapest and is the only
+selected source/destination. The initial preview exported 34 existing records within
+2026-10-27 through 2027-12-31; historical records and other calendars were untouched.
+The authenticated server transport passed live recognition, two-way rate/category/time
+edits, zero rates, same-field conflict resolution, whole-day/partial-day conversions,
+general events, unknown-workplace review, recurring DST occurrences and moved instances.
+The actual host timer independently synchronized fresh events in both directions, and
+offline token refresh succeeded. All marked fixtures were removed and original local
+records remained unchanged. The date-boundary fix passed 60 focused tests / 242 assertions,
+PHPStan core/tests and code style checks. Google Testing-mode refresh-token expiration
+still applies until the OAuth application's publishing configuration is changed.
+
+Cancelled recurring masters are removed from the polling set even when Google retains
+their recurrence fields; deleted series do not generate repeated instance requests.

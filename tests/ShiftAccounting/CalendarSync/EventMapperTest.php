@@ -87,6 +87,21 @@ class EventMapperTest extends TestCase
         self::assertSame('Personal note', $value['note']);
     }
 
+    /** Google PATCH must explicitly remove obsolete date/dateTime fields when changing whole-day mode. */
+    public function testPatchClearsObsoleteBoundaries(): void
+    {
+        $mapper = new EventMapper();
+        $whole = ['start' => ['date' => '2027-02-03'], 'end' => ['date' => '2027-02-05']];
+        $timed = ['start' => ['dateTime' => '2027-02-03T09:15:00+01:00', 'timeZone' => 'Europe/Budapest'], 'end' => ['dateTime' => '2027-02-03T12:45:00+01:00', 'timeZone' => 'Europe/Budapest']];
+        $toTimed = $mapper->patchDates($timed, $whole);
+        self::assertSame($timed['start'] + ['date' => null], $toTimed['start']);
+        self::assertSame($timed['end'] + ['date' => null], $toTimed['end']);
+        $toWhole = $mapper->patchDates($whole, $timed);
+        self::assertSame($whole['start'] + ['dateTime' => null, 'timeZone' => null], $toWhole['start']);
+        self::assertSame($whole['end'] + ['dateTime' => null, 'timeZone' => null], $toWhole['end']);
+        self::assertSame($timed, $mapper->patchDates($timed, $timed));
+    }
+
     /** Checks rejected candidates never become guessed accounting records.
      * @param GoogleEvent $overrides
      */

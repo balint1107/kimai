@@ -235,6 +235,10 @@ class CalendarSyncTest extends TestCase
             $sync->run($connection);
             self::assertSame('deleted', $occurrence->state);
             self::assertTrue($local->records($owner)[$occurrence->localKey]['cancelled'] ?? false);
+            // Google may retain recurrence fields on a cancelled master: it must not remain in the polling set.
+            $remote['series']['status'] = 'cancelled';
+            $sync->run($connection);
+            self::assertArrayNotHasKey('series', $connection->settings['masters']['primary'] ?? []);
         } finally {
             $db->rollBack();
             $tokens->setToken($previous);
