@@ -64,3 +64,10 @@ volumes persist through ordinary restarts; do not use `down -v` on the demo proj
 Follow upstream security releases by merging tagged releases into the feature branch,
 rebuilding and rerunning import, calculation, prefix and browser regression tests.
 ARM64 packaging is a later step; the Pi's nearly full root volume prevents deployment.
+
+## Optional Google Calendar sync
+
+See [setup and recovery](google-calendar-sync.md) for private OAuth credentials,
+the encryption key, additive migration and one-minute host timer. The application
+continues working without these settings; no calendar access occurs until authorized.
+Pause synchronization before restoring a database or changing the Google account.

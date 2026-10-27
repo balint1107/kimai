@@ -1,0 +1,10 @@
+[Unit]
+Description=Check Kimai Google Calendar changes each minute
+
+[Timer]
+OnBootSec=1min
+OnUnitInactiveSec=1min
+Unit=kimai-calendar-sync.service
+
+[Install]
+WantedBy=timers.target

@@ -29,8 +29,8 @@ final class TimeOffService
         return array_map($this->record(...), $this->em->getRepository(ShiftTimeOff::class)->findBy(['owner' => $owner], ['begin' => 'ASC']));
     }
 
-    /** Saves $data for $owner; dates are Budapest-local, all-day end dates inclusive; returns the saved absence.
-     * @param array<string, mixed> $data id optional; begin/end date or minute datetime strings; all_day boolean; note optional; kind time_off/event; title required for event; color optional #RRGGBB
+    /** Saves $data for $owner; dates are Budapest-local or explicit-offset instants, all-day end dates inclusive; returns the saved absence.
+     * @param array<string, mixed> $data id optional; begin/end dates, minute-local datetimes or second-precision offset datetimes; all_day boolean; note optional; kind time_off/event; title required for event; color optional #RRGGBB
      */
     public function save(User $owner, array $data): ShiftTimeOff
     {
@@ -49,8 +49,9 @@ final class TimeOffService
         $dates = [];
         foreach (['begin', 'end'] as $key) {
             $value = $data[$key] ?? null;
-            $date = \is_string($value) ? \DateTimeImmutable::createFromFormat('!' . $format, $value, $zone) : false;
-            if ($date === false || $date->format($format) !== $value) {
+            $inputFormat = !$allDay && \is_string($value) && preg_match('/[+-]\d{2}:\d{2}$/D', $value) ? 'Y-m-d\\TH:i:sP' : $format;
+            $date = \is_string($value) ? \DateTimeImmutable::createFromFormat('!' . $inputFormat, $value, $zone) : false;
+            if ($date === false || $date->format($inputFormat) !== $value) {
                 throw new \InvalidArgumentException('shift.invalid_time');
             }
             $dates[$key] = $date;

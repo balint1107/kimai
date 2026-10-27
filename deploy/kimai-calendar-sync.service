@@ -1,0 +1,9 @@
+[Unit]
+Description=Kimai Google Calendar synchronization
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/docker exec --user www-data --workdir /opt/kimai kimai-shifts-app-1 php bin/console app:shifts:calendar-sync --env=prod --no-interaction
+TimeoutStartSec=15min

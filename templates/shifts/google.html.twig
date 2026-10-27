@@ -1,0 +1,70 @@
+{% extends 'shifts/layout.html.twig' %}
+{% block accounting %}
+{% for type, messages in app.flashes %}{% for message in messages %}<div class="alert alert-{{ type == 'error' ? 'danger' : 'success' }}">{{ message|trans }}</div>{% endfor %}{% endfor %}
+<div class="card mb-3"><div class="card-body">
+    <h2>{{ 'shift.google'|trans }}</h2>
+    <p>{{ 'shift.google_help'|trans }}</p>
+    {% if not configured %}
+        <div class="alert alert-info">{{ 'shift.google_setup_needed'|trans }}</div>
+        <p>{{ 'shift.google_callback'|trans }} <code>https://bgamgee.ddns.net/kimai/hu/shifts/google/callback</code></p>
+        <ol><li>{{ 'shift.google_setup_project'|trans }}</li><li>{{ 'shift.google_setup_client'|trans }}</li><li>{{ 'shift.google_setup_server'|trans }}</li></ol>
+    {% else %}
+        <form action="{{ path('shift_google_connect') }}" method="post"><input type="hidden" name="_token" value="{{ csrf_token('shifts') }}"><button class="btn btn-primary">{{ (connected ? 'shift.google_reconnect' : 'shift.google_connect')|trans }}</button></form>
+    {% endif %}
+    <p class="mt-3">{{ 'shift.google_status'|trans }}: {{ (not connected ? 'shift.google_disconnected' : (enabled ? 'shift.google_running' : 'shift.google_paused'))|trans }}{% if last_success %} · {{ 'shift.google_last'|trans }}: {{ last_success|date('Y-m-d H:i', 'Europe/Budapest') }}{% endif %}</p>
+    <p>{{ 'shift.google_pending'|trans }}: {{ pending_count }} · {{ 'shift.google_review'|trans }}: {{ review_count }}</p>
+    {% if sync_error %}<div class="alert alert-warning">{{ 'shift.google_sync_error'|trans }}</div>{% endif %}
+    {% if connected %}<form action="{{ path('shift_google_settings') }}" method="post" class="d-flex gap-2"><input type="hidden" name="_token" value="{{ csrf_token('shifts') }}"><button class="btn" name="action" value="pause">{{ 'shift.google_pause'|trans }}</button><button class="btn" name="action" value="disconnect">{{ 'shift.google_disconnect'|trans }}</button></form>{% endif %}
+</div></div>
+{% if connected %}
+<div class="card mb-3"><div class="card-body">
+<form action="{{ path('shift_google_settings') }}" method="post">
+    <input type="hidden" name="_token" value="{{ csrf_token('shifts') }}"><input type="hidden" name="action" value="save">
+    <h3>{{ 'shift.google_calendars'|trans }}</h3>
+    {% for calendar in calendars %}<label class="d-block"><input type="checkbox" name="calendars[]" value="{{ calendar.id }}" {{ calendar.id in settings.calendars ? 'checked' : '' }}> {{ calendar.name }}</label>{% endfor %}
+    <label class="d-block my-3">{{ 'shift.google_destination'|trans }}<select class="form-select" name="destination" required>{% for calendar in calendars %}<option value="{{ calendar.id }}" {{ settings.destination == calendar.id ? 'selected' : '' }}>{{ calendar.name }}</option>{% endfor %}</select></label>
+    <div class="d-flex gap-2 flex-wrap"><label>{{ 'shift.from'|trans }}<input type="date" name="from" class="form-control" value="{{ settings.from }}" required></label><label>{{ 'shift.to'|trans }}<input type="date" name="to" class="form-control" value="{{ settings.to }}" required></label></div>
+    <label class="d-block my-3">{{ 'shift.google_aliases'|trans }}<textarea name="aliases" class="form-control" rows="3" placeholder="viztorony = Víztorony">{{ aliases }}</textarea></label>
+    <button class="btn btn-primary">{{ 'shift.save'|trans }}</button>
+</form>
+</div></div>
+<div class="d-flex flex-wrap gap-2 mb-3">
+    <form action="{{ path('shift_google_sync') }}" method="post"><input type="hidden" name="_token" value="{{ csrf_token('shifts') }}"><button class="btn" name="action" value="preview">{{ 'shift.google_preview'|trans }}</button>{% if enabled %} <button class="btn" name="action" value="sync">{{ 'shift.google_sync_now'|trans }}</button>{% endif %}</form>
+    {% if not enabled and settings.previewed|default(false) %}<form action="{{ path('shift_google_settings') }}" method="post"><input type="hidden" name="_token" value="{{ csrf_token('shifts') }}"><label class="me-2"><input type="checkbox" name="confirm" value="1" required> {{ 'shift.google_enable_confirm'|trans }}</label><button class="btn btn-success" name="action" value="enable">{{ 'shift.google_enable'|trans }}</button></form>{% endif %}
+</div>
+{% endif %}
+<h2>{{ 'shift.google_review'|trans }}</h2>
+<p class="text-muted">{{ 'shift.google_review_help'|trans }}</p>
+{% for link in links %}
+{% if link.state in ['review','conflict'] or link.problem %}
+<div class="card mb-2"><div class="card-body">
+    <h3>{{ link.remote.summary|default(link.localKey|default('shift.new_event'|trans)) }} <span class="badge bg-yellow-lt">{{ ('shift.google_state_' ~ link.state)|trans }}</span></h3>
+    {% if link.problem %}<p>{{ link.problem }}</p>{% endif %}
+    {% if link.remote.htmlLink|default('') starts with 'https://www.google.com/calendar/' or link.remote.htmlLink|default('') starts with 'https://calendar.google.com/' %}<a href="{{ link.remote.htmlLink }}" target="_blank" rel="noopener noreferrer">{{ 'shift.google_open'|trans }}</a>{% endif %}
+    {% set current = local_records[link.localKey|default('')]|default(link.pending.value|default(link.baseline)) %}
+    {% set incoming = comparisons[link.id].remote %}
+    <details class="my-2"><summary>{{ 'shift.google_compare'|trans }}</summary>
+        <div class="table-responsive"><table class="table table-sm"><thead><tr><th></th><th>Kimai</th><th>Google</th></tr></thead><tbody>
+        {% for field, label in {begin:'shift.from',end:'shift.to',workplace:'shift.workplace',category:'shift.category',rate:'shift.rate',note:'shift.note',title:'shift.event_name'} %}
+            <tr><th>{{ label|trans }}</th>{% for value in [current,incoming] %}<td>
+                {% if value and value[field] is defined %}
+                    {% if field in ['begin','end'] %}{{ value[field]|date(value.all_day ? 'Y-m-d' : 'Y-m-d H:i', 'Europe/Budapest') }}
+                    {% elseif field == 'workplace' %}{{ place_names[value[field]]|default('') }}
+                    {% elseif field == 'rate' %}{{ value[field] }} Ft
+                    {% else %}{{ value[field] }}{% endif %}
+                {% else %}—{% endif %}
+            </td>{% endfor %}</tr>
+        {% endfor %}
+        </tbody></table></div>
+        {% if not incoming and link.remote %}<p>{{ link.remote.summary|default('') }}</p><p class="text-break">{{ link.remote.description|default('') }}</p>{% endif %}
+    </details>
+    <form action="{{ path('shift_google_resolve', {id:link.id}) }}" method="post" class="d-flex gap-2 flex-wrap align-items-end">
+        <input type="hidden" name="_token" value="{{ csrf_token('shifts') }}">
+        {% if link.remote %}{% if comparisons[link.id].candidates %}<label>{{ 'shift.google_link_existing'|trans }}<select name="local_key" class="form-select"><option value="">{{ 'shift.google_new_record'|trans }}</option>{% for key, candidate in comparisons[link.id].candidates %}<option value="{{ key }}">{{ candidate.begin|date('Y-m-d H:i', 'Europe/Budapest') }} · {{ place_names[candidate.workplace|default(0)]|default(candidate.title|default('')) }} · {{ candidate.category|default('') }}</option>{% endfor %}</select></label>{% endif %}<button class="btn" name="choice" value="remote">{{ 'shift.google_use_remote'|trans }}</button>{% endif %}
+        {% if link.localKey %}<button class="btn" name="choice" value="local">{{ 'shift.google_use_local'|trans }}</button>{% endif %}
+        <button class="btn" name="choice" value="ignore">{{ 'shift.google_ignore'|trans }}</button>
+    </form>
+</div></div>
+{% endif %}
+{% else %}<p>{{ 'shift.google_no_changes'|trans }}</p>{% endfor %}
+{% endblock %}

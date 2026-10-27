@@ -1,0 +1,4 @@
+parameters:
+    env(GOOGLE_CALENDAR_CLIENT_ID): ''
+    env(GOOGLE_CALENDAR_CLIENT_SECRET): ''
+    env(GOOGLE_CALENDAR_KEY): ''

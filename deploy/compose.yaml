@@ -19,6 +19,9 @@ services:
             ADMINPASS: ${ADMIN_PASSWORD:?required}
             MAILER_URL: null://null
             MAILER_FROM: ${ADMIN_EMAIL:?required}
+            GOOGLE_CALENDAR_CLIENT_ID: ${GOOGLE_CALENDAR_CLIENT_ID:-}
+            GOOGLE_CALENDAR_CLIENT_SECRET: ${GOOGLE_CALENDAR_CLIENT_SECRET:-}
+            GOOGLE_CALENDAR_KEY: ${GOOGLE_CALENDAR_KEY:-}
             memory_limit: 512M
         volumes:
             - app-data:/opt/kimai/var/data

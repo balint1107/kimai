@@ -144,4 +144,4 @@ Public auth remains Kimai's own; the fork does not introduce another login mecha
 
 `app:shifts:import PATH USERNAME [--commit]` supports a private server-side import.
 Without `--commit` it only previews; it also initializes the selected user's Hungarian
-locale and calendar landing page. No calendar service integrations are included.
+locale and calendar landing page. Optional two-way Google Calendar synchronization is documented in [Google Calendar sync](google-calendar-sync.md). It stays disabled until the server OAuth client and user authorization are configured.
