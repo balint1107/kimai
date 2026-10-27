@@ -53,6 +53,26 @@ Green highlighting is limited to these report rows; the calendar has no green to
 
 ## Calendar day markers and personal holidays
 
+When the calendar area is narrower than 768 CSS pixels, week/month views display
+three day columns at once. Drag horizontally (mouse or touch) to reveal the remaining
+days; the toolbar and week time labels stay in place. The grid also supports normal horizontal trackpad
+scrolling and keyboard scrolling when focused. The initial mobile view is now week.
+Tap/click and release without moving opens the event editor. A short hold followed by
+dragging scrolls horizontally and/or vertically; after the grid reaches its vertical
+edge, vertical movement scrolls the page. On week views, hold still for 500ms, then
+drag vertically to highlight a time interval in 15-minute steps; releasing opens the
+editor with that range. Cancelled gestures do not open the editor. In compact views,
+swiping an event scrolls instead of moving it; tap to edit its dates. Desktop
+drag-to-move/resize and range selection remain available,
+and day view retains its full-width layout. Resizing switches between these modes
+without replacing the selected date/view or changing saved records.
+
+Validated through the public proxy at 390/700/1280px: three-column week/month and
+seven-column desktop layouts, mouse/touch horizontal and vertical scrolling,
+500ms-hold vertical interval selection, release-only creation, existing-event taps,
+cancelled holds, day view and date preservation on resize. Frontend lint/build passed;
+the browser checks made no saved-record writes.
+
 Day/week time grids use one-hour slots and labels. Each hourly row is at least
 2.5rem (40px at the default font size); remaining vertical space expands all rows
 evenly instead of leaving an oversized blank area below 23:00. Headers and body

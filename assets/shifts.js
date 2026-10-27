@@ -1,5 +1,6 @@
 import './shifts.scss';
 import {calendarDay} from './shifts-calendar';
+import {compactCalendar} from './shifts-mobile-calendar';
 import {Calendar, createPlugin} from '@fullcalendar/core';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
@@ -23,7 +24,7 @@ function initialize() {
     const root=document.getElementById('shift-root');
     if (!root) {return;}
     const text=JSON.parse(root.dataset.texts), form=document.getElementById('shift-form'), dialog=document.getElementById('shift-dialog');
-    let places=JSON.parse(root.dataset.places), records=[], absences=[], calendar=null;
+    let places=JSON.parse(root.dataset.places), records=[], absences=[], calendar=null, calendarInteraction=null;
     const money=new Intl.NumberFormat('hu-HU',{style:'currency',currency:'HUF',maximumFractionDigits:0});
     /** Formats seconds as a duration without wrapping after 24 hours. */
     const hours=(seconds)=>`${Math.floor(Math.round(seconds/60)/60)}:${String(Math.round(seconds/60)%60).padStart(2,'0')}`;
@@ -266,25 +267,30 @@ function initialize() {
     if (calendarElement) {
         calendar=new Calendar(calendarElement,{
             plugins:[dayGridPlugin,timeGridPlugin,interactionPlugin,zonePlugin],locale:huLocale,timeZone:'Europe/Budapest',firstDay:1,
-            initialView:window.innerWidth<576?'timeGridDay':'timeGridWeek',height:Math.max(560,window.innerHeight-350),expandRows:true,scrollTime:'07:00:00',nowIndicator:true,editable:true,selectable:true,
+            initialView:'timeGridWeek',height:Math.max(560,window.innerHeight-350),expandRows:true,scrollTime:'07:00:00',nowIndicator:true,editable:true,selectable:true,
             headerToolbar:{left:'prev,next today',center:'title',right:'dayGridMonth,timeGridWeek,timeGridDay'},slotDuration:'01:00:00',slotLabelInterval:'01:00:00',snapDuration:'00:15:00',
             eventTimeFormat:{hour:'2-digit',minute:'2-digit',hour12:false},slotLabelFormat:{hour:'2-digit',minute:'2-digit',hour12:false},
-            dateClick:info=>edit({start:info.dateStr.length===10?`${info.dateStr}T08:00`:info.dateStr}),
-            select:info=>{if(info.view.type!=='dayGridMonth'){edit({start:info.startStr,end:info.endStr});}},
-            eventClick:info=>info.event.extendedProps.kind?edit(absences.find(r=>r.id===info.event.id)):edit(records.find(r=>String(r.id)===info.event.id)),
+            dateClick:info=>{if(!calendarInteraction || calendarInteraction.canOpen()){edit({start:info.dateStr.length===10?`${info.dateStr}T08:00`:info.dateStr});}},
+            select:info=>{if(info.view.type!=='dayGridMonth' && (!calendarInteraction || calendarInteraction.canOpen())){edit({start:info.startStr,end:info.endStr});}},
+            eventClick:info=>{if(!calendarInteraction || calendarInteraction.canOpen()){if(info.event.extendedProps.kind){edit(absences.find(r=>r.id===info.event.id));}else{edit(records.find(r=>String(r.id)===info.event.id));}}},
             dayCellClassNames:info=>[`shift-day-${dayMarker(info.date).kind}`],
             dayHeaderClassNames:info=>[`shift-day-${dayMarker(info.date).kind}`],
             dayCellDidMount:info=>{const marker=dayMarker(info.date);if(marker.label){info.el.title=marker.label;}},
             dayHeaderDidMount:info=>{const marker=dayMarker(info.date);if(marker.label){info.el.title=marker.label;}},
-            datesSet:info=>{document.getElementById('calendar-swap-notice').classList.toggle('d-none',dayMarker(info.start).known&&dayMarker(new Date(info.end.valueOf()-1)).known);},
+            datesSet:info=>{document.getElementById('calendar-swap-notice').classList.toggle('d-none',dayMarker(info.start).known&&dayMarker(new Date(info.end.valueOf()-1)).known);requestAnimationFrame(()=>calendarInteraction?.update());},
             eventClassNames:info=>info.event.extendedProps.state==='cancelled'?['state-cancelled']:[],
             /** Returns wrapped text nodes for FullCalendar info; only cancellation needs a state label. */
             eventContent:info=>{const label=document.createElement('div');label.className='shift-event-label';label.textContent=info.event.extendedProps.kind==='event'?`${info.timeText} ${info.event.title}`:info.event.extendedProps.kind==='time_off'?`${info.timeText} ${info.event.extendedProps.event_title?info.event.title:text.time_off+(info.event.title?' · '+info.event.title:'')}`:`${info.timeText} ${info.event.title}${info.event.extendedProps.state==='cancelled'?' · '+text.cancelled:''}`;return {domNodes:[label]};},
-            /** Sets info.el's full tooltip, keeping completion/planning state exclusive to reports. */
-            eventDidMount:info=>{info.el.title=info.event.extendedProps.kind?`${info.event.title || text.time_off}${info.event.extendedProps.note&&info.event.extendedProps.note!==info.event.title?' · '+info.event.extendedProps.note:''}`:`${info.event.title}${info.event.extendedProps.state==='cancelled'?' · '+text.cancelled:''} · ${money.format(info.event.extendedProps.amount)}`;},
+            /** Stores info.el's stable tap identity and tooltip, keeping completion/planning state exclusive to reports. */
+            eventDidMount:info=>{info.el.dataset.shiftEventId=info.event.id;info.el.title=info.event.extendedProps.kind?`${info.event.title || text.time_off}${info.event.extendedProps.note&&info.event.extendedProps.note!==info.event.title?' · '+info.event.extendedProps.note:''}`:`${info.event.title}${info.event.extendedProps.state==='cancelled'?' · '+text.cancelled:''} · ${money.format(info.event.extendedProps.amount)}`;},
             eventDrop:move,eventResize:move,
         });
         calendar.render();
+        calendarInteraction=compactCalendar(calendar,calendarElement,{
+            range:range=>edit({start:range.start,end:range.end}),
+            tap:start=>edit({start}),
+            event:id=>{const record=absences.find(r=>r.id===id) || records.find(r=>String(r.id)===id);if(record){edit(record);}},
+        });
         document.getElementById('calendar-date').addEventListener('change',event=>{if(event.target.value){calendar.gotoDate(event.target.value);}});
     }
     /** Saves a drag/resize using ISO instants; reverts the UI when validation or the network fails. */
