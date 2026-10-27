@@ -63,7 +63,7 @@ final class ShiftCalendarController extends AbstractController
         $comparisons = [];
         foreach ($links as $link) {
             try {
-                $incoming = $link->remote === [] || ($link->remote['status'] ?? '') === 'cancelled' ? null : $this->mapper->incoming($link->remote, $this->shifts->workplaces(), $connection->settings['aliases'], $link->baseline);
+                $incoming = $link->remote === [] || ($link->remote['status'] ?? '') === 'cancelled' ? null : $this->mapper->incoming($link->remote, $this->shifts->workplaces(), $connection->settings['aliases'], $link->baseline, $connection->settings['plain_events'] ?? false);
             } catch (\Exception) {
                 $incoming = null;
             }
@@ -118,7 +118,7 @@ final class ShiftCalendarController extends AbstractController
         return $this->redirectToRoute('shift_google');
     }
 
-    /** Applies validated settings/actions from $request; saving policy pauses writes and resets remote cursors for a new preview. */
+    /** Applies validated settings/actions from $request; saving policy (including ordinary-event opt-in) pauses writes and resets cursors for a new preview. */
     #[Route(path: '/settings', name: 'shift_google_settings', methods: ['POST'])]
     public function settings(Request $request): Response
     {
@@ -190,7 +190,7 @@ final class ShiftCalendarController extends AbstractController
                         $aliases[$parts[0]] = $parts[1];
                     }
                     $connection->enabled = false;
-                    $connection->settings = ['calendars' => array_values(array_unique($selected)), 'destination' => $destination, 'aliases' => $aliases, 'from' => $dates['from'], 'to' => $dates['to'], 'cursors' => [], 'previewed' => false];
+                    $connection->settings = ['calendars' => array_values(array_unique($selected)), 'destination' => $destination, 'aliases' => $aliases, 'from' => $dates['from'], 'to' => $dates['to'], 'cursors' => [], 'previewed' => false, 'plain_events' => $request->request->getBoolean('plain_events')];
                     break;
                 default:
                     throw new \InvalidArgumentException('Unknown calendar action');

@@ -150,7 +150,7 @@ class CalendarSyncTest extends TestCase
             self::assertSame(0, $http->getRequestsCount() - 2, 'Preview and initial sync only read Google');
             $local->save($owner, array_replace($record, ['rate' => 4200, 'category' => 'Számla']), $link->localKey);
             $sync->run($connection);
-            self::assertStringContainsString('Órabér: 4200', ($remote['phone1']['description'] ?? ''));
+            self::assertSame('4200', $remote['phone1']['extendedProperties']['private']['kimai_rate'] ?? null);
             self::assertSame(4200, $local->records($owner)[$link->localKey]['rate'] ?? null);
             // Independent edits merge, retaining a saved rate despite changed workplace defaults.
             $shifts->workplace($place->getName() ?? '', 9999, 'EFO', null, $place->getId());
@@ -161,7 +161,7 @@ class CalendarSyncTest extends TestCase
             self::assertSame(4200, $local->records($owner)[$link->localKey]['rate'] ?? null);
             // Same-field changes must stop without overwriting either side.
             $local->save($owner, array_replace($local->records($owner)[$link->localKey], ['rate' => 5000]), $link->localKey);
-            $remote['phone1']['description'] = str_replace('Órabér: 4200', 'Órabér: 6000', $remote['phone1']['description']);
+            $remote['phone1']['description'] = 'Phone rate: 6000 Ft/óra';
             $remote['phone1']['etag'] = 'conflicting-phone-edit';
             $sync->run($connection);
             self::assertSame('conflict', $link->state);

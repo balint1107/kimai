@@ -25,6 +25,8 @@
     <label class="d-block my-3">{{ 'shift.google_destination'|trans }}<select class="form-select" name="destination" required>{% for calendar in calendars %}<option value="{{ calendar.id }}" {{ settings.destination == calendar.id ? 'selected' : '' }}>{{ calendar.name }}</option>{% endfor %}</select></label>
     <div class="d-flex gap-2 flex-wrap"><label>{{ 'shift.from'|trans }}<input type="date" name="from" class="form-control" value="{{ settings.from }}" required></label><label>{{ 'shift.to'|trans }}<input type="date" name="to" class="form-control" value="{{ settings.to }}" required></label></div>
     <label class="d-block my-3">{{ 'shift.google_aliases'|trans }}<textarea name="aliases" class="form-control" rows="3" placeholder="viztorony = Víztorony">{{ aliases }}</textarea></label>
+    <label class="d-block my-3"><input type="checkbox" name="plain_events" value="1" {{ settings.plain_events|default(false) ? 'checked' : '' }}> {{ 'shift.google_plain_events'|trans }}</label>
+    <p class="text-muted">{{ 'shift.google_phone_help'|trans }}</p>
     <button class="btn btn-primary">{{ 'shift.save'|trans }}</button>
 </form>
 </div></div>

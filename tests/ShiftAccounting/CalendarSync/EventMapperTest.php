@@ -102,6 +102,61 @@ class EventMapperTest extends TestCase
         self::assertSame($timed, $mapper->patchDates($timed, $timed));
     }
 
+    /** Normal phone titles identify shifts/holidays, with ordinary events explicitly enabled per connection. */
+    public function testPhoneTitlesWithoutSchema(): void
+    {
+        $mapper = new EventMapper();
+        $shift = $mapper->incoming($this->event(['summary' => 'Víztorony']), $this->places(), [], [], true);
+        self::assertNotNull($shift);
+        self::assertSame(3500, $shift['rate'] ?? null);
+        self::assertSame('EFO', $shift['category'] ?? null);
+        $invoice = $mapper->incoming($this->event(['summary' => 'Víztorony Számla', 'description' => '4200 Ft/óra']), $this->places(), [], [], true);
+        self::assertNotNull($invoice);
+        self::assertSame('Számla', $invoice['category'] ?? null);
+        self::assertSame(4200, $invoice['rate'] ?? null);
+        $holiday = $mapper->incoming($this->event(['summary' => 'Családi szabadság', 'start' => ['date' => '2027-02-03'], 'end' => ['date' => '2027-02-05']]), $this->places(), [], [], true);
+        self::assertNotNull($holiday);
+        self::assertSame('time_off', $holiday['kind']);
+        $event = $mapper->incoming($this->event(['summary' => 'Dentist', 'description' => 'Bring documents']), $this->places(), [], [], true);
+        self::assertNotNull($event);
+        self::assertSame('event', $event['kind']);
+        self::assertSame('Bring documents', $event['note']);
+        self::assertNull($mapper->incoming($this->event(['summary' => 'Dentist']), $this->places()));
+    }
+
+    /** Keeps schema details hidden, restores exported overrides and avoids replaying an unchanged old rate note. */
+    public function testHiddenMetadataAndSavedOverrides(): void
+    {
+        $mapper = new EventMapper();
+        $value = $mapper->incoming($this->event(['summary' => 'Víztorony', 'description' => '4200 Ft/óra']), $this->places());
+        self::assertNotNull($value);
+        $value['rate'] = 5000;
+        $google = $mapper->outgoing($value, 'Víztorony', '19');
+        self::assertSame('4200 Ft/óra', $google['description'] ?? null);
+        self::assertStringNotContainsString('[Kimai]', $google['description'] ?? '');
+        self::assertSame('5000', $google['extendedProperties']['private']['kimai_rate'] ?? null);
+        $read = $mapper->incoming($google, $this->places(), [], $value, true);
+        self::assertNotNull($read);
+        self::assertSame(5000, $read['rate'] ?? null);
+        $google['description'] = '4200 Ft/óra. Bring documents.';
+        $read = $mapper->incoming($google, $this->places(), [], $value, true);
+        self::assertNotNull($read);
+        self::assertSame(5000, $read['rate'] ?? null);
+        $google['description'] = '6000 Ft/óra';
+        $read = $mapper->incoming($google, $this->places(), [], $value, true);
+        self::assertNotNull($read);
+        self::assertSame(6000, $read['rate'] ?? null);
+        $holiday = ['kind' => 'time_off', 'begin' => '2027-02-03', 'end' => '2027-02-05', 'all_day' => true, 'note' => 'Travel', 'title' => 'Family trip', 'color' => '#123abc'];
+        self::assertSame($holiday, $mapper->incoming($mapper->outgoing($holiday, '', '20'), $this->places(), [], [], true));
+    }
+
+    /** Plain hourly overrides must remain whole-forint amounts, even without a structured block. */
+    public function testRejectsFractionalPlainRate(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        (new EventMapper())->incoming($this->event(['summary' => 'Víztorony', 'description' => '4200,5 Ft/óra']), $this->places(), [], [], true);
+    }
+
     /** Checks rejected candidates never become guessed accounting records.
      * @param GoogleEvent $overrides
      */

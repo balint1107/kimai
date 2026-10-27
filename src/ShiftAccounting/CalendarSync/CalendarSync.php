@@ -116,7 +116,7 @@ final class CalendarSync
             return;
         }
         try {
-            $value = $this->mapper->incoming($event, $places, $connection->settings['aliases'], $link !== null ? $link->baseline : []);
+            $value = $this->mapper->incoming($event, $places, $connection->settings['aliases'], $link !== null ? $link->baseline : [], $connection->settings['plain_events'] ?? false);
         } catch (\Exception $e) {
             $link ??= new ShiftCalendarLink($connection, $calendar, $event['id']);
             $link->remote = $event;
@@ -230,7 +230,7 @@ final class CalendarSync
                 $link->state = 'deleted';
                 $link->pending = null;
             } else {
-                $value = $this->mapper->incoming($link->remote, $this->places(), $link->connection->settings['aliases'], $link->baseline);
+                $value = $this->mapper->incoming($link->remote, $this->places(), $link->connection->settings['aliases'], $link->baseline, $link->connection->settings['plain_events'] ?? false);
                 if ($value === null) {
                     throw new \InvalidArgumentException('Event cannot be recognized; edit it in Google and preview again');
                 }
@@ -315,7 +315,7 @@ final class CalendarSync
                     }
                 } elseif (isset($event['recurrence'])) {
                     try {
-                        if ($this->mapper->incoming($event, $places, $connection->settings['aliases']) !== null) {
+                        if ($this->mapper->incoming($event, $places, $connection->settings['aliases'], [], $connection->settings['plain_events'] ?? false) !== null) {
                             $masters[$event['id']] = true;
                         }
                     } catch (\Exception) {

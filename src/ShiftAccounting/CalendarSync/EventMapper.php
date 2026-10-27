@@ -24,14 +24,14 @@ final class EventMapper
         return trim(preg_replace('/[^\p{L}\p{N}]+/u', ' ', $value) ?? '');
     }
 
-    /** Maps Google $event using $places/$aliases; $previous preserves omitted saved overrides. Returns null for unrelated events, throws for ambiguous/invalid candidates.
+    /** Maps Google $event using $places/$aliases; $previous preserves saved overrides; $plainEvents enables ordinary-event fallback in explicitly opted-in calendars. Returns null for unrelated events, throws for ambiguous/invalid candidates.
      * @param GoogleEvent $event
      * @param list<Place> $places
      * @param array<string, string> $aliases
      * @param Value|array{} $previous
      * @return Value|null
      */
-    public function incoming(array $event, array $places, array $aliases = [], array $previous = []): ?array
+    public function incoming(array $event, array $places, array $aliases = [], array $previous = [], bool $plainEvents = false): ?array
     {
         $description = html_entity_decode(strip_tags(str_replace(['<br>', '<br/>', '<br />', '</p>', '</div>'], "\n", (string) ($event['description'] ?? ''))), ENT_QUOTES | ENT_HTML5);
         $fields = [];
@@ -52,10 +52,6 @@ final class EventMapper
         if (isset($fields['cancelled']) && !\in_array($this->normalize($fields['cancelled']), ['0', '1', 'true', 'false', 'igen', 'nem', 'yes', 'no'], true)) {
             throw new \InvalidArgumentException('Invalid cancellation flag');
         }
-        $kind = match ($this->normalize($fields['type'] ?? $previous['kind'] ?? 'shift')) {
-            'helyettesites', 'shift' => 'shift', 'szabadsag', 'time off' => 'time_off', 'altalanos esemeny', 'event' => 'event',
-            default => throw new \InvalidArgumentException('Unknown event type'),
-        };
         $text = ' ' . $this->normalize(($event['summary'] ?? '') . ' ' . ($event['location'] ?? '')) . ' ';
         $matches = [];
         foreach ($places as $place) {
@@ -71,6 +67,21 @@ final class EventMapper
                 }
             }
         }
+        $hidden = $event['extendedProperties']['private'] ?? [];
+        $title = ' ' . $this->normalize($event['summary'] ?? '') . ' ';
+        $holiday = str_contains($title, ' szabadsag ') || str_contains($title, ' szabi ') || str_contains($title, ' holiday ');
+        $shiftHint = str_contains($text, ' helyettesites ');
+        $kind = match ($this->normalize($fields['type'] ?? $previous['kind'] ?? $hidden['kimai_kind'] ?? ($holiday ? 'time_off' : (($matches !== [] || $shiftHint) ? 'shift' : ($plainEvents ? 'event' : 'shift'))))) {
+            'helyettesites', 'shift' => 'shift', 'szabadsag', 'time off' => 'time_off', 'altalanos esemeny', 'event' => 'event',
+            default => throw new \InvalidArgumentException('Unknown event type'),
+        };
+        if ($matches === [] && !isset($fields['workplace']) && isset($hidden['kimai_workplace'])) {
+            foreach ($places as $place) {
+                if ($this->normalize($place['name']) === $this->normalize($hidden['kimai_workplace'])) {
+                    $matches[$place['id']] = $place;
+                }
+            }
+        }
         if ($kind === 'shift' && !isset($fields['workplace']) && $previous !== []) {
             $place = current(array_filter($places, fn ($p) => $p['id'] === ($previous['workplace'] ?? null)));
             // A clear new title match can change workplace; an unrecognized renamed title keeps the saved link.
@@ -78,7 +89,7 @@ final class EventMapper
                 $matches[$place['id']] = $place;
             }
         }
-        if ($previous === [] && $matches === [] && $fields === [] && !str_contains($text, ' helyettesites ')) {
+        if ($previous === [] && $matches === [] && $fields === [] && !$shiftHint && !$holiday && !$plainEvents && !isset($hidden['kimai_kind'])) {
             return null;
         }
         if ($kind === 'shift' && \count($matches) !== 1) {
@@ -119,20 +130,38 @@ final class EventMapper
                 if (\count($cats) > 1) {
                     throw new \InvalidArgumentException('Conflicting accounting categories');
                 }
-                $categoryText = $cats[0] ?? $previous['category'] ?? (\is_string($place['category']) ? $place['category'] : '');
+                $categoryText = $cats[0] ?? $previous['category'] ?? $hidden['kimai_category'] ?? (\is_string($place['category']) ? $place['category'] : '');
             }
             $category = match ($this->normalize($categoryText)) { 'efo' => 'EFO', 'szamla' => 'Számla', default => throw new \InvalidArgumentException('Unknown accounting category') };
-            $rate = $fields['rate'] ?? $previous['rate'] ?? $place['rate'];
+            $plainRate = null;
+            $rateInput = ($previous === [] || $note !== $previous['note']) ? (($event['summary'] ?? '') . ' ' . $note) : ($event['summary'] ?? '');
+            $ratePattern = '/(?<![\p{L}\p{N}.,])([+-]?\d+(?:[ \x{00a0}]\d{3})*(?:[.,]\d+)?)\s*(?:Ft|HUF)\s*\/\s*(?:óra|ora|h)\b/iu';
+            preg_match_all($ratePattern, $rateInput, $rates);
+            if ($rates[1] !== []) {
+                $values = array_values(array_unique(array_map(fn ($v) => str_replace([' ', "\u{00a0}", ','], ['', '', '.'], $v), $rates[1])));
+                if (\count($values) !== 1) {
+                    throw new \InvalidArgumentException('Conflicting hourly rates');
+                }
+                $plainRate = $values[0];
+                if ($previous !== [] && preg_match($ratePattern, $event['summary'] ?? '') !== 1) {
+                    preg_match_all($ratePattern, $previous['note'], $oldRates);
+                    $oldValues = array_values(array_unique(array_map(fn ($v) => str_replace([' ', "\u{00a0}", ','], ['', '', '.'], $v), $oldRates[1])));
+                    if ($oldValues === $values) {
+                        $plainRate = null;
+                    }
+                }
+            }
+            $rate = $fields['rate'] ?? $plainRate ?? $previous['rate'] ?? $hidden['kimai_rate'] ?? $place['rate'];
             if (!is_numeric($rate) || !is_finite((float) $rate) || (float) $rate < 0 || floor((float) $rate) !== (float) $rate) {
                 throw new \InvalidArgumentException('Hourly rate must be a nonnegative whole HUF amount');
             }
-            $result += ['workplace' => (int) $place['id'], 'category' => $category, 'rate' => (int) $rate, 'cancelled' => isset($fields['cancelled']) ? \in_array($this->normalize($fields['cancelled']), ['1', 'true', 'igen', 'yes'], true) : ($previous['cancelled'] ?? false)];
+            $result += ['workplace' => (int) $place['id'], 'category' => $category, 'rate' => (int) $rate, 'cancelled' => isset($fields['cancelled']) ? \in_array($this->normalize($fields['cancelled']), ['1', 'true', 'igen', 'yes'], true) : ($previous['cancelled'] ?? (($hidden['kimai_cancelled'] ?? '0') === '1'))];
             if (mb_strlen($note) > 2000) {
                 throw new \InvalidArgumentException('Shift note exceeds 2000 characters');
             }
         } else {
             $title = trim((string) ($event['summary'] ?? ''));
-            $color = $fields['color'] ?? $previous['color'] ?? ($kind === 'time_off' ? '#ae3ec9' : '#0ca678');
+            $color = $fields['color'] ?? $previous['color'] ?? $hidden['kimai_color'] ?? ($kind === 'time_off' ? '#ae3ec9' : '#0ca678');
             if ($title === '' || mb_strlen($title) > 150 || mb_strlen($note) > 200 || !preg_match('/^#[0-9a-f]{6}$/iD', $color)) {
                 throw new \InvalidArgumentException('Invalid event name, color or note');
             }
@@ -142,24 +171,23 @@ final class EventMapper
         return $result;
     }
 
-    /** Serializes normalized $value into Google fields, preserving unrelated remote fields via PATCH; $placeName is the displayed workplace and $linkId is private identity.
+    /** Serializes $value with ordinary notes and hidden accounting metadata, preserving unrelated fields via PATCH; $placeName is the displayed workplace and $linkId is private identity.
      * @param Value $value
      * @return GoogleEvent
      */
     public function outgoing(array $value, string $placeName, string $linkId): array
     {
         $shift = $value['kind'] === 'shift';
-        $lines = ['[Kimai]', 'Típus: ' . ($shift ? 'Helyettesítés' : ($value['kind'] === 'time_off' ? 'Szabadság' : 'Általános esemény'))];
+        $metadata = ['kimai_link' => $linkId, 'kimai_schema' => '2', 'kimai_kind' => $value['kind']];
         if ($shift) {
-            $lines = array_merge($lines, ['Munkahely: ' . $placeName, 'Kategória: ' . ($value['category'] ?? ''), 'Órabér: ' . ($value['rate'] ?? 0), 'Törölt: ' . (($value['cancelled'] ?? false) ? 'igen' : 'nem')]);
+            $metadata += ['kimai_workplace' => $placeName, 'kimai_category' => $value['category'] ?? '', 'kimai_rate' => (string) ($value['rate'] ?? 0), 'kimai_cancelled' => ($value['cancelled'] ?? false) ? '1' : '0'];
         } else {
-            $lines[] = 'Szín: ' . ($value['color'] ?? '#0ca678');
+            $metadata['kimai_color'] = $value['color'] ?? '#0ca678';
         }
-        $lines[] = '[/Kimai]';
         $allDay = $value['all_day'];
         $date = fn ($v) => $allDay ? ['date' => $v] : ['dateTime' => (new \DateTimeImmutable('@' . $v))->setTimezone(new \DateTimeZone('Europe/Budapest'))->format(\DateTimeInterface::ATOM), 'timeZone' => 'Europe/Budapest'];
 
-        return ['summary' => $shift ? (($value['cancelled'] ?? false) ? '[Törölt] ' : '') . $placeName . ' · ' . ($value['category'] ?? '') : ($value['title'] ?? ''), 'start' => $date($value['begin']), 'end' => $date($value['end']), 'description' => implode("\n", $lines) . "\n\n" . $value['note'], 'extendedProperties' => ['private' => ['kimai_link' => $linkId, 'kimai_schema' => '1']]];
+        return ['summary' => $shift ? (($value['cancelled'] ?? false) ? '[Törölt] ' : '') . $placeName . ' · ' . ($value['category'] ?? '') : ($value['title'] ?? ''), 'start' => $date($value['begin']), 'end' => $date($value['end']), 'description' => $value['note'], 'extendedProperties' => ['private' => $metadata]];
     }
 
     /** Clears obsolete date fields when PATCH changes between whole-day and timed $payload; $previous is the last Google event.

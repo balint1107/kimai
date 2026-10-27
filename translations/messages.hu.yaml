@@ -136,3 +136,6 @@ shift.google_resolution_error: "A változat nem alkalmazható. Ellenőrizd az es
 shift.google_pending: "Függő kimenő módosítások"
 
 shift.google_new_record: "Külön bejegyzés létrehozása"
+
+shift.google_plain_events: "Munkahely nélküli általános események átvétele is a kijelölt naptárakból"
+shift.google_phone_help: "Telefonon: munkahely neve + időpont = helyettesítés; az EFO vagy Számla szóval felülírható a kategória. A Szabadság nevű esemény szabadságként kerül be. Külön leírás nem szükséges."

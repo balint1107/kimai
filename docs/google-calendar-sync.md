@@ -35,32 +35,33 @@ and selecting that account's calendars again.
 
 Apple Calendar can create/edit these events when their selected account/calendar is
 Google; iCloud-only entries are outside this integration. Enter actual start/end times.
-A title such as `Víztorony EFO` can resolve a known workplace. Aliases use one
-`alias = existing workplace name` per line. Accents, case and punctuation are ignored,
-but ambiguous matches never become guessed accounting records.
+No Kimai schema is required on the phone. In the dedicated Helyettesítések calendar:
 
-For explicit control, include this block in the event description:
+- `Víztorony` plus start/end times creates a shift with that workplace's saved defaults.
+- `Víztorony Számla` or `Víztorony EFO` overrides the accounting category.
+- A known workplace in Location works too. Aliases remain configurable.
+- `Szabadság`, `Családi szabadság` or `Szabi` creates named time off, whole-day or timed.
+- Other titles create ordinary events when **Also import ordinary events** is enabled.
+- Optional `4200 Ft/óra` in a title or note overrides the rate; fractional rates require review.
 
-```
-[Kimai]
-Típus: Helyettesítés
-Munkahely: Víztorony
-Kategória: EFO
-Órabér: 3500
-[/Kimai]
+Enable ordinary-event import only for calendars whose unmarked entries should appear
+in Kimai. It is enabled for the dedicated calendar and remains opt-in for other selections.
+Accents, case and punctuation are ignored for workplace/category matching. Ambiguous
+workplaces, all-day paid shifts and explicit Helyettesítés without a known workplace
+remain in review, excluded from earnings. Defaults apply on first creation; later omitted
+fields preserve saved rates/categories. Ordinary events and holidays never affect earnings.
 
-Personal notes go here.
-```
+Exported descriptions now contain only the user's notes. Type, saved rate, category and
+color are retained as private Google event metadata and local synchronization state.
+An unchanged `Ft/óra` amount in notes does not reset a newer saved Kimai rate, even
+when other note text is edited. Change that amount or use the Kimai editor for an override. Names can
+be edited normally on the phone; an existing link never disappears merely because a
+name no longer identifies a workplace. Existing linked event types remain fixed.
 
-Types are Helyettesítés, Szabadság and Általános esemény. Structured fields take
-precedence over title/location matching. Holidays/general events must be explicitly
-typed; a holiday uses a title, optional `Szín: #RRGGBB`, notes and timed/all-day dates.
-All-day Google end dates are exclusive. Whole-HUF zero rates are valid; Unknown,
-missing/ambiguous workplaces, unknown categories and fractional rates require review.
-Defaults apply only on first creation; omitted overrides preserve saved linked values.
-A title rename cannot unlink an event. Text outside the managed block remains notes.
-The structured color preserves exact holiday/event colors; Google's palette is not a
-one-to-one representation of arbitrary application colors.
+Legacy `[Kimai]` blocks and explicit key/value fields are still understood for backwards
+compatibility, but are neither required nor generated. Whole-day Google end dates are
+exclusive. Arbitrary holiday/event colors survive in private metadata; Google palette
+colors do not map one-to-one to application colors.
 
 ## Reconciliation and operation
 
@@ -156,3 +157,11 @@ still applies until the OAuth application's publishing configuration is changed.
 
 Cancelled recurring masters are removed from the polling set even when Google retains
 their recurrence fields; deleted series do not generate repeated instance requests.
+
+Schema-free phone entry and clean exported descriptions passed 63 focused tests /
+266 assertions, PHPStan core/tests and Twig/YAML/style checks. The ordinary-event
+fallback is enabled only for the dedicated calendar during activation.
+
+Live schema-free acceptance passed for titles, locations, holidays, ordinary events and
+plain hourly overrides. All 34 existing visible blocks were removed without changing
+local accounting records, and all five temporary Google events were deleted.
