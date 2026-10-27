@@ -57,10 +57,13 @@ and OAuth credentials remain saved; neither calendar nor events are deleted on f
 Checkpoint fields live in the existing JSON settings and require no schema migration.
 
 Validation passed 87 focused tests / 365 assertions, PHPStan core/tests, code style,
-Twig/YAML and mobile/desktop settings checks. Insert/reuse/retry cases used simulated
-Google responses. The deployed account's existing two-scope offline refresh and saved
-calendar choices were verified live with all 767 native records preserved. Live calendar
-creation awaits explicit consent to the new scope; no extra calendars were created.
+Twig/YAML and mobile/desktop settings checks. After three-scope consent, live checks
+verified secondary-calendar creation/read/deletion, owned-calendar reuse, offline
+refresh, and two-way shift/holiday edits and deletions. Three temporary Google calendars
+and their test events were deleted. The isolated local test transaction was rolled back;
+all 767 original native records and real calendar selections were preserved. A clean
+regular-calendar preview allowed automatic sync to resume. Retry/error cases remain
+covered with simulated Google responses.
 
 See [Google's calendar creation API](https://developers.google.com/workspace/calendar/api/v3/reference/calendars/insert)
 and [scope definitions](https://developers.google.com/workspace/calendar/api/auth).
