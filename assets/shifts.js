@@ -217,6 +217,19 @@ function initialize() {
     populatePlaces();
     document.getElementById('shift-close').addEventListener('click',()=>dialog.close());
     document.getElementById('shift-new')?.addEventListener('click',()=>edit());
+    /** Runs an immediate two-way sync and refreshes visible records without resetting the selected calendar view. */
+    async function synchronizeCalendar() {
+        const button=document.getElementById('shift-sync');
+        button.disabled=true;button.setAttribute('aria-busy','true');
+        document.getElementById('shift-error').classList.add('d-none');
+        try {
+            const body=new FormData();body.set('_token',root.dataset.token);body.set('action','sync');
+            const response=await fetch(root.dataset.syncUrl,{method:'POST',headers:{Accept:'application/json'},body});
+            if (!response.ok || !(await response.json()).success) {throw new Error(text.google_sync_error);}
+            await refresh();
+        } catch(e) {error(e.message);} finally {button.disabled=false;button.removeAttribute('aria-busy');}
+    }
+    document.getElementById('shift-sync')?.addEventListener('click',synchronizeCalendar);
     form.elements.event_type.addEventListener('change',changeEventType);
     form.elements.title.addEventListener('input',()=>{delete form.elements.title.dataset.defaultHolidayName;});
     form.elements.all_day.addEventListener('change',eventLayout);

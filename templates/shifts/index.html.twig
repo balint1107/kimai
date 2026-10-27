@@ -1,13 +1,13 @@
 {% extends 'shifts/layout.html.twig' %}
 {% block accounting %}
 {% set texts = {} %}
-{% for key in ['completed','planned','in_progress','cancelled','count','hours','amount','period','category','state','workplace','saved','delete_confirm','overlap','invalid_time','review','save','new_shift','total_amount','all','select_workplace','new_workplace','edit_workplace','time_off','new_event','event','shift_type','delete_event_confirm'] %}
+{% for key in ['completed','planned','in_progress','cancelled','count','hours','amount','period','category','state','workplace','saved','delete_confirm','overlap','invalid_time','review','save','new_shift','total_amount','all','select_workplace','new_workplace','edit_workplace','time_off','new_event','event','shift_type','delete_event_confirm','google_sync_error'] %}
     {% set texts = texts|merge({(key): ('shift.' ~ key)|trans}) %}
 {% endfor %}
 <div id="shift-root" data-tab="{{ tab }}" data-token="{{ csrf_token('shifts') }}" data-texts="{{ texts|json_encode|e('html_attr') }}" data-places="{{ places|json_encode|e('html_attr') }}"
      data-data-url="{{ path('shift_data') }}" data-save-url="{{ path('shift_save') }}" data-delete-url="{{ path('shift_delete') }}" data-workplace-url="{{ path('shift_workplace') }}"
      data-xlsx-url="{{ path('shift_export', {format:'xlsx'}) }}" data-csv-url="{{ path('shift_export', {format:'csv'}) }}"
-     data-time-off-save-url="{{ path('shift_time_off_save') }}" data-time-off-delete-url="{{ path('shift_time_off_delete') }}"
+     data-sync-url="{{ path('shift_google_sync') }}" data-time-off-save-url="{{ path('shift_time_off_save') }}" data-time-off-delete-url="{{ path('shift_time_off_delete') }}"
      data-review="{{ review|default(null)|json_encode|e('html_attr') }}">
     <div id="shift-error" class="alert alert-danger d-none" role="alert"></div>
     {% if tab in ['calendar','summary','workplaces'] %}
@@ -23,7 +23,7 @@
     <div class="row g-2 mb-3" id="shift-totals" aria-live="polite"></div>
     {% endif %}
     {% if tab == 'calendar' %}
-        <div class="d-flex flex-wrap justify-content-between align-items-end mb-2 gap-2"><label>{{ 'shift.jump_date'|trans }}<input class="form-control" type="date" id="calendar-date"></label><button class="btn btn-primary" id="shift-new">{{ 'shift.new_event'|trans }}</button></div>
+        <div class="d-flex flex-wrap justify-content-between align-items-end mb-2 gap-2"><label>{{ 'shift.jump_date'|trans }}<input class="form-control" type="date" id="calendar-date"></label><div class="d-flex gap-2"><button class="btn btn-primary" id="shift-new">{{ 'shift.new_event'|trans }}</button><button type="button" class="btn btn-icon" id="shift-sync" title="{{ 'shift.google_sync_now'|trans }}" aria-label="{{ 'shift.google_sync_now'|trans }}"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M6.1 7a7 7 0 0 1 11.55-2L20 8M4 16l2.35 3A7 7 0 0 0 17.9 17"/></svg></button></div></div>
         <div class="d-flex flex-wrap gap-2 mb-2 shift-calendar-legend">{% for marker in ['weekend','public_holiday','workday','rest_day','time_off','event'] %}<span class="badge shift-marker-{{ marker }}">{{ ('shift.' ~ marker)|trans }}</span>{% endfor %}</div>
         <p id="calendar-swap-notice" class="text-muted d-none">{{ 'shift.swap_notice'|trans }}</p>
         <div class="card"><div class="card-body"><div id="shift-calendar"></div></div></div>

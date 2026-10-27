@@ -71,6 +71,13 @@ finishes. A database advisory lock serializes manual/background passes per owner
 Local snapshots detect edits/deletions made through both the custom editor and native
 Kimai routes, staging durable operations before HTTP writes. This means outbound
 changes normally wait up to one minute; Google/phone propagation can add delay.
+The icon-only refresh button beside **New event** runs the same two-way sync immediately
+and reloads visible records without changing the calendar view/date. It disables itself
+while running, has an accessible label/tooltip, and displays sync failures in the calendar.
+It respects paused/disconnected connections and uses the existing CSRF-protected endpoint
+(JSON success or HTTP 409 for unavailable/failed sync; normal settings forms still redirect).
+Verified through the public proxy on desktop/mobile: real sync, date preservation,
+CSRF rejection and button recovery after a failed request; frontend lint/build and PHP/Twig checks passed.
 No Redis, new Composer package or separate long-lived application runtime is required.
 
 Incoming changes use paginated incremental tokens. Invalidated tokens rebuild only

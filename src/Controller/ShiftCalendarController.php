@@ -268,13 +268,14 @@ final class ShiftCalendarController extends AbstractController
         return $this->redirectToRoute('shift_google');
     }
 
-    /** Runs a CSRF-protected preview/manual sync from $request; unavailable/paused connections never send writes. */
+    /** Runs CSRF-protected preview/manual sync from $request; JSON callers receive success or HTTP 409, while normal forms redirect; paused connections never send writes. */
     #[Route(path: '/sync', name: 'shift_google_sync', methods: ['POST'])]
     public function synchronize(Request $request): Response
     {
         $this->csrf($request);
         $connection = $this->connection();
         $preview = $request->request->get('action') === 'preview';
+        $failed = false;
         try {
             if ($connection->credentials === null || $connection->settings['calendars'] === [] || (!$preview && !$connection->enabled)) {
                 throw new \RuntimeException('Connect and select a calendar first');
@@ -285,7 +286,13 @@ final class ShiftCalendarController extends AbstractController
                 $this->em->flush();
             }
         } catch (\Throwable) {
-            $this->addFlash('error', 'shift.google_sync_error');
+            $failed = true;
+            if ($request->getPreferredFormat() !== 'json') {
+                $this->addFlash('error', 'shift.google_sync_error');
+            }
+        }
+        if ($request->getPreferredFormat() === 'json') {
+            return $this->json(['success' => !$failed], $failed ? 409 : 200);
         }
 
         return $this->redirectToRoute('shift_google');
