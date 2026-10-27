@@ -18,6 +18,7 @@
             <a class="nav-link {{ tab|default('imports') == name ? 'active' : '' }}" href="{{ path('shift_calendar', {tab:name}) }}">{{ ('shift.' ~ name)|trans }}</a>
         {% endfor %}
         <a class="nav-link {{ tab|default('') == 'google' ? 'active' : '' }}" href="{{ path('shift_google') }}">{{ 'shift.google'|trans }}</a>
+        <a class="nav-link {{ tab|default('') == 'google_review' ? 'active' : '' }}" href="{{ path('shift_google_review') }}">{{ 'shift.google_review'|trans }}</a>
     </nav>
     {% block accounting %}{% endblock %}
     <footer class="text-muted mt-4 small"><a href="{{ asset('fork-source.tar.gz') }}">{{ 'shift.source'|trans }}</a> · Kimai 2.71.0 · AGPL-3.0 · Europe/Budapest</footer>

@@ -94,6 +94,17 @@ final class CalendarSync
         if ($link?->state === 'ignored' || $link?->state === 'deleted') {
             return;
         }
+        // A corrected invalid source must reach Google before parsing that unchanged source again.
+        if ($link !== null && !empty($link->pending['reviewed'])) {
+            if (($event['etag'] ?? null) !== ($link->remote['etag'] ?? null) || ($event['status'] ?? '') === 'cancelled') {
+                $link->remote = $event;
+                $link->state = 'conflict';
+                $link->problem = 'Google changed after this correction; review again';
+                $this->em->flush();
+            }
+
+            return;
+        }
         if (($event['status'] ?? '') === 'cancelled') {
             if ($link === null) {
                 return;
@@ -183,8 +194,11 @@ final class CalendarSync
         $this->em->flush();
     }
 
-    /** Resolves owner-checked $link using $choice (remote/local/ignore), optionally attaching a confirmed existing $localKey. */
-    public function resolve(ShiftCalendarLink $link, string $choice, ?string $localKey = null): void
+    /** Resolves owner-checked $link using $choice (remote/local/ignore), optionally attaching a confirmed existing $localKey; $correction/$revision validate explicit editor input against its displayed snapshot.
+     * @throws \InvalidArgumentException|\RuntimeException when the choice, correction or concurrency checks fail
+     * @param array<string, mixed>|null $correction
+     */
+    public function resolve(ShiftCalendarLink $link, string $choice, ?string $localKey = null, ?array $correction = null, ?string $revision = null): void
     {
         $db = $this->em->getConnection();
         $lock = 'kimai-google-' . $link->connection->id;
@@ -195,7 +209,11 @@ final class CalendarSync
         $db->beginTransaction();
         try {
             $this->em->refresh($link);
-            $this->resolveVersion($link, $choice, $localKey);
+            if ($choice === 'correct') {
+                $this->correctVersion($link, $correction ?? [], $revision ?? '', $localKey);
+            } else {
+                $this->resolveVersion($link, $choice, $localKey);
+            }
             $db->commit();
         } catch (\Throwable $e) {
             $db->rollBack();
@@ -203,6 +221,58 @@ final class CalendarSync
         } finally {
             $db->fetchOne('SELECT RELEASE_LOCK(?)', [$lock]);
         }
+    }
+
+    /** Returns a change token covering $link and its current native record; detects edits made while a review form is open. */
+    public function revision(ShiftCalendarLink $link): string
+    {
+        return hash('sha256', json_encode([$link->state, $link->remote, $link->baseline, $link->pending, $this->local->records($link->connection->owner)[$link->localKey ?? ''] ?? null], JSON_THROW_ON_ERROR));
+    }
+
+    /** Applies validated $input to refreshed $link under the resolution lock; $revision rejects stale forms and $localKey explicitly attaches an owned duplicate.
+     * @param array<string, mixed> $input
+     */
+    private function correctVersion(ShiftCalendarLink $link, array $input, string $revision, ?string $localKey): void
+    {
+        if (!\in_array($link->state, ['review', 'conflict'], true) && $link->problem === null) {
+            throw new \InvalidArgumentException('This entry no longer needs review');
+        }
+        if (!hash_equals($this->revision($link), $revision)) {
+            throw new \InvalidArgumentException('This entry changed; reload before saving');
+        }
+        if (($link->remote['status'] ?? '') === 'cancelled') {
+            throw new \InvalidArgumentException('Resolve the Google deletion using a version choice');
+        }
+        if ($link->remote !== []) {
+            $latest = $this->google->request($link->connection, 'GET', 'calendars/' . rawurlencode($link->calendarId) . '/events/' . rawurlencode($link->eventId));
+            if (($latest['etag'] ?? null) !== ($link->remote['etag'] ?? null) || ($latest['status'] ?? '') === 'cancelled') {
+                throw new \InvalidArgumentException('Google changed; synchronize and reload before saving');
+            }
+        }
+        $records = $this->local->records($link->connection->owner);
+        $key = $link->localKey;
+        if ($localKey !== null && $localKey !== '' && $localKey !== $key) {
+            if ($key !== null || !isset($records[$localKey]) || $this->em->getRepository(ShiftCalendarLink::class)->findOneBy(['connection' => $link->connection, 'localKey' => $localKey]) !== null) {
+                throw new \InvalidArgumentException('Select an unlinked record belonging to this account');
+            }
+            $key = $localKey;
+        }
+        $value = $this->mapper->reviewed($input, $this->places(), $key === null ? [] : ($records[$key] ?? $link->baseline), $this->calendarRole($link->connection, $link->calendarId));
+        if ($key === null) {
+            foreach ($records as $record) {
+                if ($record['kind'] === $value['kind'] && $record['begin'] === $value['begin'] && $record['end'] === $value['end'] && ($record['workplace'] ?? null) === ($value['workplace'] ?? null)) {
+                    throw new \InvalidArgumentException('A matching record exists; select it instead of creating a duplicate');
+                }
+            }
+        }
+        $link->localKey = $this->local->save($link->connection->owner, $value, $key, $key === null ? null : ($records[$key] ?? null));
+        $link->baseline = $value;
+        $link->pending = ['value' => $value, 'reviewed' => true];
+        $link->state = 'linked';
+        $link->problem = null;
+        $link->attempts = 0;
+        $link->retryAt = null;
+        $this->em->flush();
     }
 
     /** Applies $choice to refreshed $link inside the resolution lock/transaction; $localKey optionally confirms an existing record. */
@@ -392,7 +462,7 @@ final class CalendarSync
                     $link->state = 'review';
                     $link->problem = 'Review local changes before exporting';
                 } else {
-                    $link->pending = $current === null ? ['delete' => true] : ['value' => $current];
+                    $link->pending = ($current === null ? ['delete' => true] : ['value' => $current]) + (!empty($link->pending['reviewed']) ? ['reviewed' => true] : []);
                 }
             }
         }

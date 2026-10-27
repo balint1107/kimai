@@ -1,0 +1,46 @@
+{% extends 'shifts/layout.html.twig' %}
+{% block accounting %}
+{% for type, messages in app.flashes %}{% for message in messages %}<div class="alert alert-{{ type == 'error' ? 'danger' : 'success' }}">{{ message|trans }}</div>{% endfor %}{% endfor %}
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3"><h2>{{ 'shift.google_review'|trans }} <span class="badge bg-yellow-lt">{{ links|length }}</span></h2><a class="btn" href="{{ path('shift_google') }}">{{ 'shift.google'|trans }}</a></div>
+<p class="text-muted">{{ 'shift.google_review_editor_help'|trans }}</p>
+{% if not selected %}
+<div class="card"><div class="card-body">{{ 'shift.google_no_changes'|trans }}</div></div>
+{% else %}
+<div class="row g-3">
+<aside class="col-lg-3"><div class="list-group" style="max-height:65vh;overflow:auto">
+{% for link in links %}<a class="list-group-item list-group-item-action text-break {{ selected.id == link.id ? 'active' : '' }}" href="{{ path('shift_google_review', {id:link.id}) }}">{{ loop.index }}. {{ link.remote.summary|default(link.localKey|default('shift.new_event'|trans)) }}<small class="d-block">{{ ('shift.google_state_' ~ link.state)|trans }}</small></a>{% endfor %}
+</div></aside>
+<div class="col-lg-9"><div class="card"><div class="card-body">
+<div class="d-flex justify-content-between flex-wrap gap-2"><h3>{{ selected.remote.summary|default(selected.localKey|default('shift.new_event'|trans)) }}</h3><span>{{ position + 1 }} / {{ links|length }}</span></div>
+{% if selected.problem %}<div class="alert alert-warning text-break">{{ selected.problem }}</div>{% endif %}
+{% if review_error %}<div class="alert alert-danger text-break" role="alert">{{ 'shift.google_resolution_error'|trans }} {{ review_error }}</div>{% endif %}
+<details class="mb-3"><summary>{{ 'shift.google_compare'|trans }}</summary>
+<div class="row g-3 mt-1"><div class="col-md-6"><strong>Google</strong><p>{{ selected.remote.summary|default('—') }}</p><p>{{ selected.remote.start.dateTime|default(selected.remote.start.date|default('—')) }} → {{ selected.remote.end.dateTime|default(selected.remote.end.date|default('—')) }}</p><div class="text-break" style="white-space:pre-wrap">{{ selected.remote.description|default('') }}</div></div>
+<div class="col-md-6"><strong>Kimai</strong>{% if current %}<p>{{ current.begin|date(current.all_day ? 'Y-m-d' : 'Y-m-d H:i', 'Europe/Budapest') }} → {{ current.end|date(current.all_day ? 'Y-m-d' : 'Y-m-d H:i', 'Europe/Budapest') }}</p><p>{{ current.title|default('') }} {{ current.category|default('') }} {{ current.rate|default('') }}</p><div class="text-break" style="white-space:pre-wrap">{{ current.note }}</div>{% else %}<p>—</p>{% endif %}</div></div>
+</details>
+{% if selected.remote.status|default('') != 'cancelled' %}
+<form action="{{ path('shift_google_resolve', {id:selected.id}) }}" method="post" data-calendar-review>
+<input type="hidden" name="_token" value="{{ csrf_token('shifts') }}"><input type="hidden" name="review_panel" value="1"><input type="hidden" name="revision" value="{{ revision }}">
+<div class="row g-3">
+<label class="col-md-6">{{ 'shift.event_type'|trans }}<select class="form-select" name="kind">{% for kind, label in {shift:'shift.shift_type',time_off:'shift.time_off',event:'shift.event'} %}<option value="{{ kind }}" {{ input.kind == kind ? 'selected' : '' }} {{ (current and current.kind != kind) ? 'disabled' : '' }}>{{ label|trans }}</option>{% endfor %}</select></label>
+<label class="col-md-6" data-review-general>{{ 'shift.event_title'|trans }}<input class="form-control" name="title" value="{{ input.title }}" maxlength="150"></label>
+<label class="col-md-6" data-review-shift>{{ 'shift.workplace'|trans }}<select class="form-select" name="workplace"><option value="">—</option>{% for place in places %}<option value="{{ place.id }}" data-category="{{ place.category }}" data-rate="{{ place.rate }}" {{ input.workplace == place.id ? 'selected' : '' }}>{{ place.name }}</option>{% endfor %}</select></label>
+<label class="col-md-3" data-review-shift>{{ 'shift.category'|trans }}<select class="form-select" name="category"><option value="">—</option>{% for category in ['EFO','Számla'] %}<option {{ input.category == category ? 'selected' : '' }}>{{ category }}</option>{% endfor %}</select></label>
+<label class="col-md-3" data-review-shift>{{ 'shift.rate'|trans }}<input class="form-control" type="number" min="0" step="1" name="rate" value="{{ input.rate }}"></label>
+<label class="col-12" data-review-general><input type="checkbox" name="all_day" value="1" {{ input.all_day == '1' ? 'checked' : '' }}> {{ 'shift.all_day'|trans }}</label>
+{% for field, label in {begin:'shift.begin',end:'shift.end'} %}<label class="col-md-6">{{ label|trans }}<input class="form-control" name="{{ field }}" type="{{ input.all_day == '1' ? 'date' : 'datetime-local' }}" value="{{ input[field] }}" required></label>{% endfor %}
+<label class="col-md-6" data-review-general>{{ 'shift.color'|trans }}<input type="color" class="form-control form-control-color" name="color" value="{{ input.color }}"></label>
+<label class="col-md-6 align-self-end" data-review-shift><input type="checkbox" name="cancelled" value="1" {{ input.cancelled == '1' ? 'checked' : '' }}> {{ 'shift.cancelled'|trans }}</label>
+<label class="col-12">{{ 'shift.note'|trans }}<textarea name="note" rows="3" class="form-control">{{ input.note }}</textarea></label>
+{% if candidates %}<label class="col-12">{{ 'shift.google_link_existing'|trans }}<select class="form-select" name="local_key"><option value="">{{ 'shift.google_new_record'|trans }}</option>{% for key, record in candidates %}<option value="{{ key }}" {{ input.local_key|default('') == key ? 'selected' : '' }}>{{ key }} · {{ record.category|default(record.title|default('')) }} · {{ record.rate|default('') }}</option>{% endfor %}</select></label>{% endif %}
+</div>
+<p class="text-muted mt-3">{{ 'shift.google_review_save_help'|trans }}</p>
+<button class="btn btn-primary" name="choice" value="correct">{{ 'shift.google_review_save_next'|trans }}</button>
+</form>
+{% endif %}
+<form action="{{ path('shift_google_resolve', {id:selected.id}) }}" method="post" class="d-flex flex-wrap gap-2 mt-3"><input type="hidden" name="_token" value="{{ csrf_token('shifts') }}"><input type="hidden" name="review_panel" value="1">
+{% if selected.remote %}<button class="btn" name="choice" value="remote">{{ 'shift.google_use_remote'|trans }}</button>{% endif %}{% if selected.localKey %}<button class="btn" name="choice" value="local">{{ 'shift.google_use_local'|trans }}</button>{% endif %}<button class="btn btn-outline-secondary" name="choice" value="ignore">{{ 'shift.google_ignore'|trans }}</button></form>
+<div class="d-flex justify-content-between mt-3">{% if position > 0 %}<a class="btn" href="{{ path('shift_google_review', {id:links[position-1].id}) }}">← {{ 'shift.google_review_previous'|trans }}</a>{% else %}<span></span>{% endif %}{% if position + 1 < links|length %}<a class="btn" href="{{ path('shift_google_review', {id:links[position+1].id}) }}">{{ 'shift.google_review_next'|trans }} →</a>{% endif %}</div>
+</div></div></div></div>
+{% endif %}
+{% endblock %}

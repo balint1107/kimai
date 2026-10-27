@@ -35,7 +35,7 @@ class ShiftCalendarLink
     /** @var GoogleEvent */
     #[ORM\Column(type: 'json')]
     public array $remote = [];
-    /** @var array{delete?:true,value?:Value}|null */
+    /** @var array{delete?:true,value?:Value,reviewed?:true}|null */
     #[ORM\Column(type: 'json', nullable: true)]
     public ?array $pending = null;
     #[ORM\Column(type: 'text', nullable: true)]

@@ -222,6 +222,54 @@ final class EventMapper
         return ['category' => $header[1], 'rate' => $rate === '' ? null : str_replace([' ', "\u{00a0}", ','], ['', '', '.'], $amount[1]), 'note' => trim($lines[1] ?? '')];
     }
 
+    /** Validates explicit review $input against $places and the linked $previous type; returns a native value, with inclusive whole-day form ends.
+     * @param array<string, mixed> $input
+     * @param list<Place> $places
+     * @param Value|array{} $previous
+     * @param 'mixed'|'work'|'holiday' $calendarRole
+     * @return Value
+     */
+    public function reviewed(array $input, array $places, array $previous = [], string $calendarRole = 'mixed'): array
+    {
+        $read = static fn (string $key): string => \is_string($input[$key] ?? null) ? trim($input[$key]) : '';
+        $kind = $read('kind');
+        if (!\in_array($kind, ['shift', 'time_off', 'event'], true)) {
+            throw new \InvalidArgumentException('Select an event type');
+        }
+        if ($calendarRole === 'holiday' && $kind !== 'time_off') {
+            throw new \InvalidArgumentException('The holiday calendar requires time-off entries');
+        }
+        $allDay = $read('all_day') === '1';
+        if ($kind === 'shift' && $allDay) {
+            throw new \InvalidArgumentException('A shift requires start and end times');
+        }
+        $dates = [];
+        foreach (['begin', 'end'] as $field) {
+            $raw = $read($field);
+            $format = $allDay ? 'Y-m-d' : 'Y-m-d\\TH:i';
+            $date = \DateTimeImmutable::createFromFormat('!' . $format, $raw, new \DateTimeZone('Europe/Budapest'));
+            if ($date === false || $date->format($format) !== $raw) {
+                throw new \InvalidArgumentException('Enter valid Budapest start and end dates/times');
+            }
+            $dates[$field] = $allDay ? ['date' => ($field === 'end' ? $date->modify('+1 day') : $date)->format('Y-m-d')] : ['dateTime' => $date->format(\DateTimeInterface::ATOM)];
+        }
+        $fields = ['Type: ' . $kind, 'Color: ' . ($read('color') ?: '#ae3ec9'), 'Cancelled: ' . ($read('cancelled') === '1' ? '1' : '0')];
+        if ($kind === 'shift') {
+            $place = current(array_filter($places, fn ($p) => (string) $p['id'] === $read('workplace')));
+            if ($place === false || !\in_array($read('category'), ['EFO', 'Számla'], true) || !preg_match('/^\d+$/D', $read('rate'))) {
+                throw new \InvalidArgumentException('Select a workplace, category and whole HUF hourly rate');
+            }
+            $fields = array_merge($fields, ['Workplace: ' . $place['name'], 'Category: ' . $read('category'), 'Rate: ' . $read('rate')]);
+        }
+        $value = $this->incoming(['summary' => $read('title'), 'description' => "[Kimai]\n" . implode("\n", $fields) . "\n[/Kimai]", 'start' => $dates['begin'], 'end' => $dates['end']], $places, [], $previous, true, $calendarRole);
+        if ($value === null || mb_strlen($read('note')) > ($kind === 'shift' ? 2000 : 200)) {
+            throw new \InvalidArgumentException('Review note is too long');
+        }
+        $value['note'] = $read('note');
+
+        return $value;
+    }
+
     /** Clears obsolete date fields when PATCH changes between whole-day and timed $payload; $previous is the last Google event.
      * @param GoogleEvent $payload
      * @param GoogleEvent $previous

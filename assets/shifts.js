@@ -284,3 +284,33 @@ function initialize() {
     if (review) {edit(review);}
 }
 if (document.readyState==='loading') {document.addEventListener('DOMContentLoaded',initialize);} else {initialize();}
+
+/** Initializes the record-by-record Google review editor, retaining explicit overrides when workplace defaults are offered. */
+function initializeCalendarReview() {
+    const form=document.querySelector('[data-calendar-review]');
+    if (!form) {return;}
+    /** Shows only the selected type's controls and converts inclusive date inputs when whole-day mode changes. */
+    function layout() {
+        const shift=form.elements.kind.value==='shift';
+        if (shift) {form.elements.all_day.checked=false;}
+        for (const el of form.querySelectorAll('[data-review-shift]')) {el.hidden=!shift;}
+        for (const el of form.querySelectorAll('[data-review-general]')) {el.hidden=shift;}
+        for (const name of ['workplace','category','rate']) {form.elements[name].required=shift;}
+        form.elements.title.required=!shift;
+        const type=form.elements.all_day.checked ? 'date' : 'datetime-local';
+        for (const name of ['begin','end']) {
+            const el=form.elements[name], value=el.value;
+            if (el.type!==type) {el.type=type;el.value=type==='date' ? value.slice(0,10) : (value ? `${value.slice(0,10)}T00:00` : '');}
+        }
+        form.elements.note.maxLength=shift ? 2000 : 200;
+    }
+    form.elements.kind.addEventListener('change',layout);
+    form.elements.all_day.addEventListener('change',layout);
+    form.elements.workplace.addEventListener('change',()=>{
+        const option=form.elements.workplace.selectedOptions[0];
+        if (!form.elements.category.value) {form.elements.category.value=option.dataset.category || '';}
+        if (!form.elements.rate.value) {form.elements.rate.value=option.dataset.rate || '';}
+    });
+    layout();
+}
+if (document.readyState==='loading') {document.addEventListener('DOMContentLoaded',initializeCalendarReview);} else {initializeCalendarReview();}

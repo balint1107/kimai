@@ -19,6 +19,42 @@ use PHPUnit\Framework\TestCase;
  */
 class EventMapperTest extends TestCase
 {
+    /** Validates explicit review overrides and inclusive holidays without leaking header syntax into free notes. */
+    public function testReviewEditor(): void
+    {
+        $mapper = new EventMapper();
+        $input = ['kind' => 'shift', 'workplace' => '1', 'category' => 'Számla', 'rate' => '0', 'begin' => '2027-01-31T23:00', 'end' => '2027-02-01T01:30', 'note' => 'EFO, 8800'];
+        $value = $mapper->reviewed($input, $this->places());
+        self::assertSame(0, $value['rate'] ?? null);
+        self::assertSame('Számla', $value['category'] ?? null);
+        self::assertSame('EFO, 8800', $value['note']);
+        self::assertSame(9000, (int) $value['end'] - (int) $value['begin']);
+        $holiday = $mapper->reviewed(['kind' => 'time_off', 'all_day' => '1', 'title' => 'Trip', 'begin' => '2027-07-01', 'end' => '2027-07-03'], $this->places(), [], 'holiday');
+        self::assertSame('2027-07-04', $holiday['end']);
+        self::assertSame('time_off', $holiday['kind']);
+    }
+
+    /** Rejects invalid $changes before any accounting record can be saved.
+     * @param array<string, string> $changes
+     */
+    #[DataProvider('invalidReviews')]
+    public function testInvalidReview(array $changes): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        (new EventMapper())->reviewed(array_replace(['kind' => 'shift', 'workplace' => '1', 'category' => 'EFO', 'rate' => '3500', 'begin' => '2027-01-01T08:00', 'end' => '2027-01-01T09:00'], $changes), $this->places());
+    }
+
+    /** Supplies invalid required fields, date modes and non-existent Budapest local times.
+     * @return iterable<string, array{array<string, string>}>
+     */
+    public static function invalidReviews(): iterable
+    {
+        foreach (['workplace' => '', 'category' => '', 'rate' => '3.5', 'begin' => '', 'end' => '2026-01-01T08:00', 'all_day' => '1', 'kind' => 'unknown'] as $key => $value) {
+            yield $key => [[$key => $value]];
+        }
+        yield 'DST gap' => [['begin' => '2027-03-28T02:30', 'end' => '2027-03-28T04:00']];
+    }
+
     /** Supplies named workplace defaults; their rates must not replace a previously saved override.
      * @return list<Place>
      */

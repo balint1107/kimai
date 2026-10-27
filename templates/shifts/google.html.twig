@@ -37,6 +37,7 @@
 </div>
 {% endif %}
 <h2>{{ 'shift.google_review'|trans }}</h2>
+<a class="btn btn-primary mb-3" href="{{ path('shift_google_review') }}">{{ 'shift.google_review_open'|trans }} ({{ review_count }})</a>
 <p class="text-muted">{{ 'shift.google_review_help'|trans }}</p>
 {% for link in links %}
 {% if link.state in ['review','conflict'] or link.problem %}

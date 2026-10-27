@@ -62,6 +62,7 @@ class CalendarSyncTest extends TestCase
         self::assertInstanceOf(\Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface::class, $tokens);
         $previous = $tokens->getToken();
         $db = $em->getConnection();
+        $db->setNestTransactionsWithSavepoints(true);
         $db->beginTransaction();
         try {
             $owner = new User();
@@ -261,6 +262,37 @@ class CalendarSyncTest extends TestCase
             self::assertNotNull($phoneHoliday->localKey);
             self::assertSame('time_off', $local->records($owner)[$phoneHoliday->localKey]['kind']);
             self::assertCount($paidBefore, array_filter($local->records($owner), fn ($record) => $record['kind'] === 'shift'));
+            // Invalid incoming data is repaired locally, remains queued while paused, and survives the next pull.
+            $remote['repair'] = ['id' => 'repair', 'etag' => 'repair-1', 'summary' => 'Unknown workplace', 'description' => 'EFO, 4500', 'start' => ['dateTime' => '2027-08-01T08:00:00+02:00'], 'end' => ['dateTime' => '2027-08-01T10:00:00+02:00']];
+            $calendarIds['repair'] = 'primary';
+            $sync->run($connection);
+            $repair = $em->getRepository(ShiftCalendarLink::class)->findOneBy(['connection' => $connection, 'eventId' => 'repair']);
+            self::assertNotNull($repair);
+            self::assertSame('review', $repair->state);
+            $fields = ['kind' => 'shift', 'workplace' => (string) $place->getId(), 'category' => 'EFO', 'rate' => '4500', 'begin' => '2027-08-01T08:00', 'end' => '2027-08-01T10:00', 'note' => 'Corrected'];
+            try {
+                $sync->resolve($repair, 'correct', null, $fields, 'stale');
+                self::fail('Stale form was accepted');
+            } catch (\InvalidArgumentException) {
+                self::assertNull($repair->localKey);
+            }
+            $connection->enabled = false;
+            $em->flush();
+            $sync->resolve($repair, 'correct', null, $fields, $sync->revision($repair));
+            self::assertNotNull($repair->localKey);
+            self::assertTrue($repair->pending['reviewed'] ?? false);
+            self::assertSame('EFO, 4500', $google->request($connection, 'GET', 'calendars/primary/events/repair')['description'] ?? null);
+            $sync->run($connection);
+            self::assertNotNull($repair->pending);
+            $connection->enabled = true;
+            $em->flush();
+            $sync->run($connection);
+            self::assertSame('linked', $repair->state);
+            self::assertNull($repair->pending);
+            self::assertStringContainsString('4500', $google->request($connection, 'GET', 'calendars/primary/events/repair')['description'] ?? '');
+            self::assertSame('Corrected', $local->records($owner)[$repair->localKey]['note']);
+            $sync->run($connection);
+            self::assertSame('linked', $repair->state);
         } finally {
             $db->rollBack();
             $tokens->setToken($previous);

@@ -94,6 +94,29 @@ kind, workplace and interval require explicit attachment using their displayed i
 (e.g. `shift:123`), never an automatic overwrite. Resolve incoming reviews before exporting
 unlinked local records, to avoid creating duplicates while matches remain unresolved.
 
+### Record-by-record review
+
+Open **Calendar review** from the navigation or Google settings. The queue shows incoming
+reviews, conflicts and failed entries individually, with original Google data and the
+current Kimai version. Correct the type, workplace, category, whole-HUF rate, dates/times,
+name, note or cancellation; **Save and next** validates and saves one native record and
+queues its corrected Google representation. Whole-day editor end dates are inclusive.
+The next active sync sends the correction; paused sync stays paused. **Next** leaves an
+entry unresolved, while **Ignore** retains its Google event without importing it.
+Existing version choices remain available, including deletion conflicts. Linked types
+stay fixed and the dedicated holiday calendar only accepts time off. Exact matching
+records require explicit attachment rather than duplicate creation. Changed Google or
+Kimai records invalidate an open correction form; synchronize/reload before reapplying.
+Invalid submissions retain their entered fields. All review actions remain owner-scoped
+and CSRF-protected. No schema migration or additional dependency is needed.
+
+Validation: 76 focused tests / 317 assertions, PHPStan core/tests, code style,
+Twig/YAML validation and the frontend lint/build passed. Browser acceptance through
+the public prefix covered desktop/mobile layout, type-specific fields, retained invalid
+input, stale forms, CSRF, shift/holiday correction and an empty queue after completion.
+Both corrected fixtures reached Google and were then deleted together with their native
+records; original records were unchanged.
+
 ## Deployment, recovery and validation
 
 Install `deploy/kimai-calendar-sync.service` and `.timer` in `/etc/systemd/system`,

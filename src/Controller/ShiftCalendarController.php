@@ -81,6 +81,67 @@ final class ShiftCalendarController extends AbstractController
         return $this->render('shifts/google.html.twig', ['page_setup' => new PageSetup('shift.google'), 'tab' => 'google', 'configured' => $this->google->configured(), 'connected' => $connection->credentials !== null, 'enabled' => $connection->enabled, 'settings' => $connection->settings, 'last_success' => $connection->lastSuccess, 'sync_error' => $connection->error, 'calendars' => $calendars, 'aliases' => implode("\n", $aliases), 'links' => $links, 'comparisons' => $comparisons, 'place_names' => array_column($this->shifts->workplaces(), 'name', 'id'), 'local_records' => $localRecords, 'pending_count' => \count(array_filter($links, fn ($l) => $l->pending !== null)), 'review_count' => \count(array_filter($links, fn ($l) => \in_array($l->state, ['review', 'conflict'], true)))]);
     }
 
+    /** Shows one owner-scoped review selected by $request, preserving rejected editor fields; no Google or accounting writes occur. */
+    #[Route(path: '/review', name: 'shift_google_review', methods: ['GET'])]
+    public function review(Request $request): Response
+    {
+        $connection = $this->connection();
+        $links = array_values(array_filter($this->em->getRepository(ShiftCalendarLink::class)->findBy(['connection' => $connection], ['id' => 'ASC']), fn ($l) => \in_array($l->state, ['review', 'conflict'], true) || $l->problem !== null));
+        $selected = null;
+        $position = 0;
+        foreach ($links as $index => $link) {
+            if ($selected === null || $link->id === $request->query->getInt('id')) {
+                $selected = $link;
+                $position = $index;
+            }
+            if ($link->id === $request->query->getInt('id')) {
+                break;
+            }
+        }
+        $records = $this->local->records($this->getUser());
+        $places = $this->shifts->workplaces();
+        $value = [];
+        $input = [];
+        $candidates = [];
+        if ($selected !== null) {
+            try {
+                $value = $this->mapper->incoming($selected->remote, $places, $connection->settings['aliases'], $selected->baseline, true, ($connection->settings['holiday_calendar'] ?? '') === '' ? 'mixed' : ($selected->calendarId === $connection->settings['holiday_calendar'] ? 'holiday' : 'work')) ?? [];
+            } catch (\Exception) {
+                // Raw Google fields remain editable when normalization fails.
+            }
+            $value = $records[$selected->localKey ?? ''] ?? $selected->pending['value'] ?? $value;
+            $kind = $value['kind'] ?? ($selected->calendarId === ($connection->settings['holiday_calendar'] ?? '') ? 'time_off' : 'shift');
+            $allDay = $value['all_day'] ?? isset($selected->remote['start']['date']);
+            $input = ['kind' => $kind, 'all_day' => $allDay ? '1' : '', 'title' => $value['title'] ?? $selected->remote['summary'] ?? '', 'note' => $value['note'] ?? $selected->remote['description'] ?? '', 'workplace' => (string) ($value['workplace'] ?? ''), 'category' => $value['category'] ?? '', 'rate' => isset($value['rate']) ? (string) $value['rate'] : '', 'color' => $value['color'] ?? '#ae3ec9', 'cancelled' => !empty($value['cancelled']) ? '1' : ''];
+            if ($value === [] && preg_match('/^\s*(EFO|Sz[aá]mla)\b[ \t]*(?:[,.:;|][ \t]*)?(\d+(?:[ \x{00a0}]\d{3})*)(?:\s*(?:Ft|HUF)(?:\s*\/\s*(?:óra|ora|h))?)?[ \t]*(?:\R|$)/iu', $input['note'], $header) === 1) {
+                $input['category'] = $this->mapper->normalize($header[1]) === 'efo' ? 'EFO' : 'Számla';
+                $input['rate'] = str_replace([' ', "\u{00a0}"], '', $header[2]);
+                $input['note'] = trim(substr($input['note'], \strlen($header[0])));
+            }
+            foreach (['begin' => 'start', 'end' => 'end'] as $field => $remoteField) {
+                $raw = $value[$field] ?? $selected->remote[$remoteField]['dateTime'] ?? $selected->remote[$remoteField]['date'] ?? '';
+                try {
+                    $date = new \DateTimeImmutable(ctype_digit((string) $raw) ? '@' . $raw : (string) $raw, new \DateTimeZone('Europe/Budapest'));
+                    $date = $date->setTimezone(new \DateTimeZone('Europe/Budapest'));
+                    $input[$field] = $raw === '' ? '' : ($allDay ? ($field === 'end' ? $date->modify('-1 day') : $date)->format('Y-m-d') : $date->format('Y-m-d\\TH:i'));
+                } catch (\Exception) {
+                    $input[$field] = '';
+                }
+            }
+            if ($selected->localKey === null) {
+                foreach ($records as $key => $record) {
+                    if (isset($selected->remote['start']['dateTime'], $selected->remote['end']['dateTime']) && $record['begin'] === (string) strtotime($selected->remote['start']['dateTime']) && $record['end'] === (string) strtotime($selected->remote['end']['dateTime'])) {
+                        $candidates[$key] = $record;
+                    }
+                }
+            }
+            $submitted = $request->attributes->get('_review_input', []);
+            $input = array_replace($input, \is_array($submitted) ? array_filter($submitted, 'is_string') : []);
+        }
+
+        return $this->render('shifts/google_review.html.twig', ['page_setup' => new PageSetup('shift.google_review'), 'tab' => 'google_review', 'links' => $links, 'selected' => $selected, 'position' => $position, 'input' => $input, 'places' => $places, 'candidates' => $candidates, 'current' => $selected === null ? null : ($records[$selected->localKey ?? ''] ?? null), 'revision' => $selected === null ? '' : $this->sync->revision($selected), 'review_error' => $request->attributes->get('_review_error')]);
+    }
+
     /** Starts offline OAuth only after a CSRF-protected POST; session state is owner-bound, expiring and PKCE-protected. */
     #[Route(path: '/connect', name: 'shift_google_connect', methods: ['POST'])]
     public function connect(Request $request): Response
@@ -240,12 +301,22 @@ final class ShiftCalendarController extends AbstractController
             throw $this->createNotFoundException();
         }
         try {
-            $this->sync->resolve($link, (string) $request->request->get('choice'), (string) $request->request->get('local_key', ''));
-        } catch (\InvalidArgumentException) {
+            $this->sync->resolve($link, (string) $request->request->get('choice'), (string) $request->request->get('local_key', ''), $request->request->get('choice') === 'correct' ? $request->request->all() : null, (string) $request->request->get('revision', ''));
+            if ($request->request->getBoolean('review_panel')) {
+                $this->addFlash('success', 'shift.google_review_saved');
+            }
+        } catch (\InvalidArgumentException | \RuntimeException $e) {
+            if ($request->request->getBoolean('review_panel')) {
+                $request->query->set('id', $id);
+                $request->attributes->set('_review_input', $request->request->all());
+                $request->attributes->set('_review_error', $e->getMessage());
+
+                return $this->review($request);
+            }
             $this->addFlash('error', 'shift.google_resolution_error');
         }
 
-        return $this->redirectToRoute('shift_google');
+        return $this->redirectToRoute($request->request->getBoolean('review_panel') ? 'shift_google_review' : 'shift_google');
     }
 
     /** Returns/persists a paused connection belonging only to the current authenticated user. */

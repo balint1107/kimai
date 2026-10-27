@@ -143,3 +143,11 @@ shift.google_phone_help: "Phone: title = workplace; first note line = EFO, 8800 
 shift.google_holiday_calendar: "Separate time-off calendar (both directions)"
 
 shift.google_no_holiday_calendar: "No separate time-off calendar"
+
+shift.google_review_open: "Review entries"
+shift.google_review_editor_help: "Resolve entries one at a time. Check the original event, correct its details, then save or ignore it."
+shift.google_review_save_help: "Whole-day end dates are inclusive. Saving updates Kimai and queues the corrected Google event for the next active sync. Ignoring leaves the Google event unchanged."
+shift.google_review_save_next: "Save and next"
+shift.google_review_saved: "Entry resolved. Google changes are queued until synchronization is active."
+shift.google_review_previous: "Previous"
+shift.google_review_next: "Next / skip for now"

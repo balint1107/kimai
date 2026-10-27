@@ -143,3 +143,11 @@ shift.google_phone_help: "Telefonon: cím = munkahely; a megjegyzés első sora 
 shift.google_holiday_calendar: "Külön szabadságnaptár (mindkét irányban)"
 
 shift.google_no_holiday_calendar: "Nincs külön szabadságnaptár"
+
+shift.google_review_open: "Bejegyzések ellenőrzése"
+shift.google_review_editor_help: "Ellenőrizd egyenként a bejegyzéseket: nézd meg az eredeti eseményt, javítsd az adatokat, majd mentsd vagy hagyd figyelmen kívül."
+shift.google_review_save_help: "Egész napos eseménynél a zárónap is beletartozik. Mentéskor frissül a Kimai; a javítás a következő aktív szinkronizáláskor kerül a Google-be. A figyelmen kívül hagyás nem módosítja a Google-eseményt."
+shift.google_review_save_next: "Mentés és következő"
+shift.google_review_saved: "Bejegyzés rendezve. A Google-módosítás az aktív szinkronizálásra vár."
+shift.google_review_previous: "Előző"
+shift.google_review_next: "Következő / egyelőre kihagyom"
