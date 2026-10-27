@@ -132,7 +132,7 @@ class EventMapperTest extends TestCase
         self::assertNotNull($value);
         $value['rate'] = 5000;
         $google = $mapper->outgoing($value, 'Víztorony', '19');
-        self::assertSame('4200 Ft/óra', $google['description'] ?? null);
+        self::assertSame("EFO, 5000\n\n4200 Ft/óra", $google['description'] ?? null);
         self::assertStringNotContainsString('[Kimai]', $google['description'] ?? '');
         self::assertSame('5000', $google['extendedProperties']['private']['kimai_rate'] ?? null);
         $read = $mapper->incoming($google, $this->places(), [], $value, true);
@@ -155,6 +155,56 @@ class EventMapperTest extends TestCase
     {
         $this->expectException(\InvalidArgumentException::class);
         (new EventMapper())->incoming($this->event(['summary' => 'Víztorony', 'description' => '4200,5 Ft/óra']), $this->places(), [], [], true);
+    }
+
+    /** Reads category and bare whole-HUF hourly rate from the note while keeping the workplace-only title. */
+    public function testCategorySalaryNoteDefault(): void
+    {
+        $mapper = new EventMapper();
+        $value = $mapper->incoming($this->event(['summary' => 'Viztorony', 'location' => 'Vízöntő', 'description' => "Szamla 8800\nBring documents"]), $this->places(), [], [], true, 'work');
+        self::assertNotNull($value);
+        self::assertSame('Számla', $value['category'] ?? null);
+        self::assertSame(8800, $value['rate'] ?? null);
+        self::assertSame('Bring documents', $value['note']);
+        $export = $mapper->outgoing($value, 'Víztorony', '34');
+        self::assertSame('Víztorony', $export['summary'] ?? null);
+        self::assertSame("Számla, 8800\n\nBring documents", $export['description'] ?? null);
+        self::assertSame($value, $mapper->incoming($export, $this->places(), [], $value, true, 'work'));
+        $zero = $mapper->incoming($this->event(['summary' => 'Viztorony', 'description' => 'EFO, 0']), $this->places(), [], [], true, 'work');
+        self::assertNotNull($zero);
+        self::assertSame(0, $zero['rate'] ?? null);
+        $grouped = $mapper->incoming($this->event(['summary' => 'Viztorony', 'description' => 'EFO 8 800 Ft']), $this->places(), [], [], true, 'work');
+        self::assertNotNull($grouped);
+        self::assertSame(8800, $grouped['rate'] ?? null);
+    }
+
+    /** The dedicated holiday calendar determines type regardless of title or workplace-like words. */
+    public function testSeparateHolidayCalendarRole(): void
+    {
+        $mapper = new EventMapper();
+        $holiday = $mapper->incoming($this->event(['summary' => 'Family trip', 'start' => ['date' => '2027-02-03'], 'end' => ['date' => '2027-02-05']]), $this->places(), [], [], true, 'holiday');
+        self::assertNotNull($holiday);
+        self::assertSame('time_off', $holiday['kind']);
+        $workplace = $mapper->incoming($this->event(['summary' => 'Viztorony']), $this->places(), [], [], true, 'holiday');
+        self::assertNotNull($workplace);
+        self::assertSame('time_off', $workplace['kind']);
+        $general = $mapper->incoming($this->event(['summary' => 'Szabadság']), $this->places(), [], [], true, 'work');
+        self::assertNotNull($general);
+        self::assertSame('event', $general['kind']);
+    }
+
+    /** Fractional bare salary notes must never be silently rounded. */
+    public function testRejectsFractionalSalaryNote(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        (new EventMapper())->incoming($this->event(['summary' => 'Viztorony', 'description' => 'EFO, 8800,5']), $this->places(), [], [], true, 'work');
+    }
+
+    /** An accounting note with an unrecognized workplace must enter review instead of becoming a nonfinancial event. */
+    public function testMissingWorkplaceWithAccountingNote(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        (new EventMapper())->incoming($this->event(['summary' => 'Unknown place', 'description' => 'EFO, 8800']), $this->places(), [], [], true, 'work');
     }
 
     /** Checks rejected candidates never become guessed accounting records.

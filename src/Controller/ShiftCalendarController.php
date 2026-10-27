@@ -63,7 +63,7 @@ final class ShiftCalendarController extends AbstractController
         $comparisons = [];
         foreach ($links as $link) {
             try {
-                $incoming = $link->remote === [] || ($link->remote['status'] ?? '') === 'cancelled' ? null : $this->mapper->incoming($link->remote, $this->shifts->workplaces(), $connection->settings['aliases'], $link->baseline, $connection->settings['plain_events'] ?? false);
+                $incoming = $link->remote === [] || ($link->remote['status'] ?? '') === 'cancelled' ? null : $this->mapper->incoming($link->remote, $this->shifts->workplaces(), $connection->settings['aliases'], $link->baseline, $connection->settings['plain_events'] ?? false, ($connection->settings['holiday_calendar'] ?? '') === '' ? 'mixed' : ($link->calendarId === $connection->settings['holiday_calendar'] ? 'holiday' : 'work'));
             } catch (\Exception) {
                 $incoming = null;
             }
@@ -147,6 +147,10 @@ final class ShiftCalendarController extends AbstractController
                     }
                     /** @var list<string> $selected */
                     $destination = (string) $request->request->get('destination', '');
+                    $holiday = (string) $request->request->get('holiday_calendar', '');
+                    if ($holiday !== '' && ($holiday === $destination || !\in_array($holiday, $selected, true))) {
+                        throw new \InvalidArgumentException('Select a separate holiday calendar among synchronized calendars');
+                    }
                     if ($selected === [] || !\in_array($destination, $selected, true)) {
                         throw new \InvalidArgumentException('Select calendars and an export destination');
                     }
@@ -190,7 +194,7 @@ final class ShiftCalendarController extends AbstractController
                         $aliases[$parts[0]] = $parts[1];
                     }
                     $connection->enabled = false;
-                    $connection->settings = ['calendars' => array_values(array_unique($selected)), 'destination' => $destination, 'aliases' => $aliases, 'from' => $dates['from'], 'to' => $dates['to'], 'cursors' => [], 'previewed' => false, 'plain_events' => $request->request->getBoolean('plain_events')];
+                    $connection->settings = ['calendars' => array_values(array_unique($selected)), 'destination' => $destination, 'aliases' => $aliases, 'from' => $dates['from'], 'to' => $dates['to'], 'cursors' => [], 'previewed' => false, 'plain_events' => $request->request->getBoolean('plain_events'), 'holiday_calendar' => $holiday];
                     break;
                 default:
                     throw new \InvalidArgumentException('Unknown calendar action');

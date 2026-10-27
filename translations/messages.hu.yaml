@@ -138,4 +138,8 @@ shift.google_pending: "Függő kimenő módosítások"
 shift.google_new_record: "Külön bejegyzés létrehozása"
 
 shift.google_plain_events: "Munkahely nélküli általános események átvétele is a kijelölt naptárakból"
-shift.google_phone_help: "Telefonon: munkahely neve + időpont = helyettesítés; az EFO vagy Számla szóval felülírható a kategória. A Szabadság nevű esemény szabadságként kerül be. Külön leírás nem szükséges."
+shift.google_phone_help: "Telefonon: cím = munkahely; a megjegyzés első sora = EFO, 8800 vagy Szamla 8800 (Ft/óra). További megjegyzés új sorban írható. Szabadsághoz a külön szabadságnaptárt használd."
+
+shift.google_holiday_calendar: "Külön szabadságnaptár (mindkét irányban)"
+
+shift.google_no_holiday_calendar: "Nincs külön szabadságnaptár"

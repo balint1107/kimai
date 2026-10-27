@@ -116,7 +116,7 @@ final class CalendarSync
             return;
         }
         try {
-            $value = $this->mapper->incoming($event, $places, $connection->settings['aliases'], $link !== null ? $link->baseline : [], $connection->settings['plain_events'] ?? false);
+            $value = $this->mapper->incoming($event, $places, $connection->settings['aliases'], $link !== null ? $link->baseline : [], $connection->settings['plain_events'] ?? false, $this->calendarRole($connection, $calendar));
         } catch (\Exception $e) {
             $link ??= new ShiftCalendarLink($connection, $calendar, $event['id']);
             $link->remote = $event;
@@ -230,7 +230,7 @@ final class CalendarSync
                 $link->state = 'deleted';
                 $link->pending = null;
             } else {
-                $value = $this->mapper->incoming($link->remote, $this->places(), $link->connection->settings['aliases'], $link->baseline, $link->connection->settings['plain_events'] ?? false);
+                $value = $this->mapper->incoming($link->remote, $this->places(), $link->connection->settings['aliases'], $link->baseline, $link->connection->settings['plain_events'] ?? false, $this->calendarRole($link->connection, $link->calendarId));
                 if ($value === null) {
                     throw new \InvalidArgumentException('Event cannot be recognized; edit it in Google and preview again');
                 }
@@ -315,7 +315,7 @@ final class CalendarSync
                     }
                 } elseif (isset($event['recurrence'])) {
                     try {
-                        if ($this->mapper->incoming($event, $places, $connection->settings['aliases'], [], $connection->settings['plain_events'] ?? false) !== null) {
+                        if ($this->mapper->incoming($event, $places, $connection->settings['aliases'], [], $connection->settings['plain_events'] ?? false, $this->calendarRole($connection, $calendar)) !== null) {
                             $masters[$event['id']] = true;
                         }
                     } catch (\Exception) {
@@ -373,7 +373,7 @@ final class CalendarSync
         $this->em->flush();
     }
 
-    /** Stages unlinked future local records and detects native-route changes/deletions; operations persist before any network writes. */
+    /** Stages unlinked records to their type-specific destination and detects native-route changes/deletions; operations persist before any network writes. */
     private function discover(ShiftCalendarConnection $connection, bool $preview): void
     {
         $records = $this->local->records($connection->owner);
@@ -405,7 +405,8 @@ final class CalendarSync
             if ($reviewCandidates !== []) {
                 continue;
             }
-            $link = new ShiftCalendarLink($connection, $connection->settings['destination'], bin2hex(random_bytes(16)));
+            $destination = $record['kind'] === 'time_off' ? ($connection->settings['holiday_calendar'] ?? $connection->settings['destination']) : $connection->settings['destination'];
+            $link = new ShiftCalendarLink($connection, $destination !== '' ? $destination : $connection->settings['destination'], bin2hex(random_bytes(16)));
             $link->localKey = $key;
             $link->state = $preview ? 'review' : 'linked';
             $link->problem = $preview ? 'Approve export of this local record' : null;
@@ -502,6 +503,16 @@ final class CalendarSync
     private function ready(ShiftCalendarLink $link): bool
     {
         return $link->state === 'linked' && $link->pending !== null;
+    }
+
+    /** Returns $calendar's role under $connection; legacy connections keep mixed title-based recognition.
+     * @return 'mixed'|'work'|'holiday'
+     */
+    private function calendarRole(ShiftCalendarConnection $connection, string $calendar): string
+    {
+        $holiday = $connection->settings['holiday_calendar'] ?? '';
+
+        return $holiday === '' ? 'mixed' : ($calendar === $holiday ? 'holiday' : 'work');
     }
 
     /** Returns persistent event links for $connection, including ignored/deleted tombstones.

@@ -35,33 +35,34 @@ and selecting that account's calendars again.
 
 Apple Calendar can create/edit these events when their selected account/calendar is
 Google; iCloud-only entries are outside this integration. Enter actual start/end times.
-No Kimai schema is required on the phone. In the dedicated Helyettesítések calendar:
+No Kimai schema is required on the phone. The default shift format is:
 
-- `Víztorony` plus start/end times creates a shift with that workplace's saved defaults.
-- `Víztorony Számla` or `Víztorony EFO` overrides the accounting category.
-- A known workplace in Location works too. Aliases remain configurable.
-- `Szabadság`, `Családi szabadság` or `Szabi` creates named time off, whole-day or timed.
-- Other titles create ordinary events when **Also import ordinary events** is enabled.
-- Optional `4200 Ft/óra` in a title or note overrides the rate; fractional rates require review.
+- Calendar: **Helyettesítések**.
+- Title: workplace name, e.g. `Viztorony` (accents are optional).
+- Note, first line: `EFO, 8800` or `Szamla 8800`. Comma or space separates the category and the saved HUF/hour rate.
+- Additional free-text notes may follow on new lines. Start/end are ordinary calendar fields.
 
-Enable ordinary-event import only for calendars whose unmarked entries should appear
-in Kimai. It is enabled for the dedicated calendar and remains opt-in for other selections.
-Accents, case and punctuation are ignored for workplace/category matching. Ambiguous
-workplaces, all-day paid shifts and explicit Helyettesítés without a known workplace
-remain in review, excluded from earnings. Defaults apply on first creation; later omitted
-fields preserve saved rates/categories. Ordinary events and holidays never affect earnings.
+Missing category/rate use workplace defaults for new shifts and preserve saved values
+for linked shifts. Zero rates and grouped whole forints (`8 800`) are valid; fractions,
+ambiguous workplaces and malformed accounting headers require review. Legacy category
+in the title, `4200 Ft/óra` overrides, aliases and explicit key/value fields remain readable.
+Exports use workplace-only titles and a compact category/rate first note line; free notes
+are retained below it. Internal identity/color/type details stay in private Google metadata.
 
-Exported descriptions now contain only the user's notes. Type, saved rate, category and
-color are retained as private Google event metadata and local synchronization state.
-An unchanged `Ft/óra` amount in notes does not reset a newer saved Kimai rate, even
-when other note text is edited. Change that amount or use the Kimai editor for an override. Names can
-be edited normally on the phone; an existing link never disappears merely because a
-name no longer identifies a workplace. Existing linked event types remain fixed.
+Select the separately owned **Szabadság** calendar as the time-off destination and include
+it among synchronized calendars. Every new entry there becomes time off regardless of
+its name; both whole and partial days work. New Kimai holidays export there, while shifts
+and ordinary events use the main destination. With separate calendars configured,
+`Szabadság` in a main-calendar title alone does not classify a new event as time off.
+Existing linked types remain fixed; do not silently convert paid shifts into holidays.
 
-Legacy `[Kimai]` blocks and explicit key/value fields are still understood for backwards
-compatibility, but are neither required nor generated. Whole-day Google end dates are
-exclusive. Arbitrary holiday/event colors survive in private metadata; Google palette
-colors do not map one-to-one to application colors.
+Ordinary-event import stays opt-in for selected calendars. Unmarked non-workplace entries
+in the main calendar become ordinary events when enabled. Ordinary events and time off
+never affect earnings. Changing workplace defaults does not modify saved rates. Google
+whole-day end dates are exclusive; the Kimai editor presents inclusive holiday end dates.
+
+Legacy `[Kimai]` blocks remain readable but are not required or generated. Color survives
+in private metadata because Google's palette does not map one-to-one to arbitrary colors.
 
 ## Reconciliation and operation
 
@@ -165,3 +166,11 @@ fallback is enabled only for the dedicated calendar during activation.
 Live schema-free acceptance passed for titles, locations, holidays, ordinary events and
 plain hourly overrides. All 34 existing visible blocks were removed without changing
 local accounting records, and all five temporary Google events were deleted.
+
+The workplace-title/category-salary-note default and separate holiday routing passed
+67 focused tests / 291 assertions, PHPStan core/tests and Twig/YAML/style validation.
+Comma or space is accepted between category and hourly rate; exports use a comma.
+Live acceptance verified both separators, zero rates, native rate changes, whole-day and
+partial-day holiday routing, ordinary events and unknown-workplace review. All five
+temporary Google events and their native records were removed; original records were
+unchanged. The owned Szabadság calendar is selected and automatic sync is active.

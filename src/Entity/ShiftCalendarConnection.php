@@ -23,7 +23,7 @@ class ShiftCalendarConnection
     public ?int $id = null;
     #[ORM\Column(type: 'text', nullable: true)]
     public ?string $credentials = null;
-    /** @var array{calendars:list<string>,destination:string,aliases:array<string,string>,from:string,to:string,cursors:array<string,string>,masters?:array<string,array<string,bool>>,previewed?:bool,plain_events?:bool} */
+    /** @var array{calendars:list<string>,destination:string,aliases:array<string,string>,from:string,to:string,cursors:array<string,string>,masters?:array<string,array<string,bool>>,previewed?:bool,plain_events?:bool,holiday_calendar?:string} */
     #[ORM\Column(type: 'json')]
     public array $settings;
     #[ORM\Column(type: 'boolean')]

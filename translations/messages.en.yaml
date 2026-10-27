@@ -138,4 +138,8 @@ shift.google_pending: "Pending outgoing changes"
 shift.google_new_record: "Create a separate record"
 
 shift.google_plain_events: "Also import ordinary events without a workplace from the selected calendars"
-shift.google_phone_help: "Phone: workplace name + times creates a shift; add EFO or Számla to override the category. Szabadság creates time off. No special description is required."
+shift.google_phone_help: "Phone: title = workplace; first note line = EFO, 8800 or Szamla 8800 (HUF/hour). Additional notes can follow on new lines. Use the separate time-off calendar for holidays."
+
+shift.google_holiday_calendar: "Separate time-off calendar (both directions)"
+
+shift.google_no_holiday_calendar: "No separate time-off calendar"

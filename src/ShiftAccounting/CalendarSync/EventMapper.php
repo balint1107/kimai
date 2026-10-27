@@ -24,14 +24,15 @@ final class EventMapper
         return trim(preg_replace('/[^\p{L}\p{N}]+/u', ' ', $value) ?? '');
     }
 
-    /** Maps Google $event using $places/$aliases; $previous preserves saved overrides; $plainEvents enables ordinary-event fallback in explicitly opted-in calendars. Returns null for unrelated events, throws for ambiguous/invalid candidates.
+    /** Maps Google $event using $places/$aliases; $previous preserves saved overrides; $plainEvents enables ordinary-event fallback in explicitly opted-in calendars; $calendarRole makes a dedicated holiday calendar authoritative. Returns null for unrelated events, throws for ambiguous/invalid candidates.
      * @param GoogleEvent $event
      * @param list<Place> $places
      * @param array<string, string> $aliases
      * @param Value|array{} $previous
+     * @param 'mixed'|'work'|'holiday' $calendarRole
      * @return Value|null
      */
-    public function incoming(array $event, array $places, array $aliases = [], array $previous = [], bool $plainEvents = false): ?array
+    public function incoming(array $event, array $places, array $aliases = [], array $previous = [], bool $plainEvents = false, string $calendarRole = 'mixed'): ?array
     {
         $description = html_entity_decode(strip_tags(str_replace(['<br>', '<br/>', '<br />', '</p>', '</div>'], "\n", (string) ($event['description'] ?? ''))), ENT_QUOTES | ENT_HTML5);
         $fields = [];
@@ -53,6 +54,8 @@ final class EventMapper
             throw new \InvalidArgumentException('Invalid cancellation flag');
         }
         $text = ' ' . $this->normalize(($event['summary'] ?? '') . ' ' . ($event['location'] ?? '')) . ' ';
+        $titleText = ' ' . $this->normalize($event['summary'] ?? '') . ' ';
+        $titleMatches = [];
         $matches = [];
         foreach ($places as $place) {
             $names = [$place['name']];
@@ -64,14 +67,20 @@ final class EventMapper
             foreach ($names as $name) {
                 if (isset($fields['workplace']) ? $this->normalize($fields['workplace']) === $this->normalize($name) : str_contains($text, ' ' . $this->normalize($name) . ' ')) {
                     $matches[$place['id']] = $place;
+                    if (!isset($fields['workplace']) && str_contains($titleText, ' ' . $this->normalize($name) . ' ')) {
+                        $titleMatches[$place['id']] = $place;
+                    }
                 }
             }
         }
+        if ($titleMatches !== []) {
+            $matches = $titleMatches;
+        }
         $hidden = $event['extendedProperties']['private'] ?? [];
         $title = ' ' . $this->normalize($event['summary'] ?? '') . ' ';
-        $holiday = str_contains($title, ' szabadsag ') || str_contains($title, ' szabi ') || str_contains($title, ' holiday ');
-        $shiftHint = str_contains($text, ' helyettesites ');
-        $kind = match ($this->normalize($fields['type'] ?? $previous['kind'] ?? $hidden['kimai_kind'] ?? ($holiday ? 'time_off' : (($matches !== [] || $shiftHint) ? 'shift' : ($plainEvents ? 'event' : 'shift'))))) {
+        $holiday = $calendarRole === 'mixed' && (str_contains($title, ' szabadsag ') || str_contains($title, ' szabi ') || str_contains($title, ' holiday '));
+        $shiftHint = str_contains($text, ' helyettesites ') || preg_match('/^\s*(EFO|Sz[aá]mla)\b/iu', $description) === 1;
+        $kind = match ($this->normalize($calendarRole === 'holiday' ? 'time_off' : ($fields['type'] ?? $previous['kind'] ?? $hidden['kimai_kind'] ?? ($holiday ? 'time_off' : (($matches !== [] || $shiftHint) ? 'shift' : ($plainEvents ? 'event' : 'shift')))))) {
             'helyettesites', 'shift' => 'shift', 'szabadsag', 'time off' => 'time_off', 'altalanos esemeny', 'event' => 'event',
             default => throw new \InvalidArgumentException('Unknown event type'),
         };
@@ -89,7 +98,7 @@ final class EventMapper
                 $matches[$place['id']] = $place;
             }
         }
-        if ($previous === [] && $matches === [] && $fields === [] && !$shiftHint && !$holiday && !$plainEvents && !isset($hidden['kimai_kind'])) {
+        if ($previous === [] && $matches === [] && $fields === [] && !$shiftHint && !$holiday && !$plainEvents && $calendarRole !== 'holiday' && !isset($hidden['kimai_kind'])) {
             return null;
         }
         if ($kind === 'shift' && \count($matches) !== 1) {
@@ -124,7 +133,10 @@ final class EventMapper
             if ($place === false) {
                 throw new \InvalidArgumentException('Missing workplace');
             }
-            $categoryText = $fields['category'] ?? null;
+            $accounting = $this->accountingNote($note);
+            $note = $accounting['note'];
+            $result['note'] = $note;
+            $categoryText = $fields['category'] ?? $accounting['category'];
             if ($categoryText === null) {
                 $cats = array_values(array_filter(['EFO', 'Számla'], fn ($c) => str_contains($text, ' ' . $this->normalize($c) . ' ')));
                 if (\count($cats) > 1) {
@@ -151,7 +163,7 @@ final class EventMapper
                     }
                 }
             }
-            $rate = $fields['rate'] ?? $plainRate ?? $previous['rate'] ?? $hidden['kimai_rate'] ?? $place['rate'];
+            $rate = $fields['rate'] ?? $accounting['rate'] ?? $plainRate ?? $previous['rate'] ?? $hidden['kimai_rate'] ?? $place['rate'];
             if (!is_numeric($rate) || !is_finite((float) $rate) || (float) $rate < 0 || floor((float) $rate) !== (float) $rate) {
                 throw new \InvalidArgumentException('Hourly rate must be a nonnegative whole HUF amount');
             }
@@ -171,7 +183,7 @@ final class EventMapper
         return $result;
     }
 
-    /** Serializes $value with ordinary notes and hidden accounting metadata, preserving unrelated fields via PATCH; $placeName is the displayed workplace and $linkId is private identity.
+    /** Serializes $value as workplace-only title, category/hourly-rate note and hidden identity metadata, preserving unrelated fields via PATCH; $placeName is the displayed workplace and $linkId is private identity.
      * @param Value $value
      * @return GoogleEvent
      */
@@ -187,7 +199,27 @@ final class EventMapper
         $allDay = $value['all_day'];
         $date = fn ($v) => $allDay ? ['date' => $v] : ['dateTime' => (new \DateTimeImmutable('@' . $v))->setTimezone(new \DateTimeZone('Europe/Budapest'))->format(\DateTimeInterface::ATOM), 'timeZone' => 'Europe/Budapest'];
 
-        return ['summary' => $shift ? (($value['cancelled'] ?? false) ? '[Törölt] ' : '') . $placeName . ' · ' . ($value['category'] ?? '') : ($value['title'] ?? ''), 'start' => $date($value['begin']), 'end' => $date($value['end']), 'description' => $value['note'], 'extendedProperties' => ['private' => $metadata]];
+        $description = $shift ? ($value['category'] ?? '') . ', ' . ($value['rate'] ?? 0) . ($value['note'] !== '' ? "\n\n" . $value['note'] : '') : $value['note'];
+
+        return ['summary' => $shift ? (($value['cancelled'] ?? false) ? '[Törölt] ' : '') . $placeName : ($value['title'] ?? ''), 'start' => $date($value['begin']), 'end' => $date($value['end']), 'description' => $description, 'extendedProperties' => ['private' => $metadata]];
+    }
+
+    /** Reads an optional first-line EFO/Számla hourly-rate header from $note; the returned note preserves remaining free text.
+     * @return array{category:?string,rate:?string,note:string}
+     */
+    private function accountingNote(string $note): array
+    {
+        $lines = preg_split('/\R/u', $note, 2) ?: [];
+        $first = trim($lines[0] ?? '');
+        if (preg_match('/^(EFO|Sz[aá]mla)\b[ \t]*(?:[.:;,|][ \t]*)?(.*)$/iu', $first, $header) !== 1) {
+            return ['category' => null, 'rate' => null, 'note' => $note];
+        }
+        $rate = trim($header[2]);
+        if ($rate !== '' && preg_match('/^([+-]?\d+(?:[ \x{00a0}]\d{3})*(?:[.,]\d+)?)(?:\s*(?:Ft|HUF)(?:\s*\/\s*(?:óra|ora|h))?)?$/iu', $rate, $amount) !== 1) {
+            throw new \InvalidArgumentException('Invalid category/hourly-rate note');
+        }
+
+        return ['category' => $header[1], 'rate' => $rate === '' ? null : str_replace([' ', "\u{00a0}", ','], ['', '', '.'], $amount[1]), 'note' => trim($lines[1] ?? '')];
     }
 
     /** Clears obsolete date fields when PATCH changes between whole-day and timed $payload; $previous is the last Google event.

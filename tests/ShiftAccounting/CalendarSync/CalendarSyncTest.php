@@ -31,7 +31,7 @@ use Symfony\Component\Security\Core\Authentication\Token\UsernamePasswordToken;
 #[\PHPUnit\Framework\Attributes\Group('integration')]
 class CalendarSyncTest extends TestCase
 {
-    /** Exercises preview, phone/local edits, echoes, rate preservation, conflict resolution, cancellation and deletion atomically. */
+    /** Exercises preview, two-way edits, conflicts, cancellation and separate-calendar holiday routing atomically. */
     public function testTwoWayLifecycle(): void
     {
         if (getenv('CALENDAR_SYNC_TEST_DATABASE') !== 'kimai_test') {
@@ -80,9 +80,13 @@ class CalendarSyncTest extends TestCase
             $instances = [];
             /** @var \ArrayObject<string, bool> $faults */
             $faults = new \ArrayObject(['expireToken' => false, 'uncertainInsert' => false, 'race' => false]);
+            /** @var array<string, string> $calendarIds */
+            $calendarIds = [];
             $writes = 0;
-            $http = new MockHttpClient(function ($method, $url, $options) use (&$remote, &$writes, &$instances, $faults): MockResponse {
+            $http = new MockHttpClient(function ($method, $url, $options) use (&$remote, &$writes, &$instances, $faults, &$calendarIds): MockResponse {
                 $path = (string) parse_url($url, PHP_URL_PATH);
+                preg_match('~/calendars/([^/]+)/~', $path, $calendarMatch);
+                $calendar = rawurldecode($calendarMatch[1] ?? 'primary');
                 if ($method === 'GET' && str_ends_with($path, '/instances')) {
                     return new MockResponse(json_encode(['items' => $instances[basename(\dirname($path))] ?? []], JSON_THROW_ON_ERROR));
                 }
@@ -93,7 +97,7 @@ class CalendarSyncTest extends TestCase
                         return new MockResponse('{}', ['http_code' => 410]);
                     }
 
-                    return new MockResponse(json_encode(['items' => array_values($remote), 'nextSyncToken' => 'next'], JSON_THROW_ON_ERROR));
+                    return new MockResponse(json_encode(['items' => array_values(array_filter($remote, fn ($event) => ($calendarIds[$event['id'] ?? ''] ?? 'primary') === $calendar)), 'nextSyncToken' => 'next'], JSON_THROW_ON_ERROR));
                 }
                 $id = basename($path);
                 if ($method === 'GET') {
@@ -114,6 +118,7 @@ class CalendarSyncTest extends TestCase
                 $body = json_decode($options['body'], true, 512, JSON_THROW_ON_ERROR);
                 if ($method === 'POST') {
                     $id = $body['id'] ?? '';
+                    $calendarIds[$id] = $calendar;
                 }
                 /** @var GoogleEvent $stored */
                 $stored = $remote[$id] ?? [];
@@ -239,6 +244,23 @@ class CalendarSyncTest extends TestCase
             $remote['series']['status'] = 'cancelled';
             $sync->run($connection);
             self::assertArrayNotHasKey('series', $connection->settings['masters']['primary'] ?? []);
+            // New Kimai holidays use their separate destination, and arbitrary titles there never create paid shifts.
+            $connection->settings['calendars'][] = 'holidays';
+            $connection->settings['holiday_calendar'] = 'holidays';
+            $holidayKey = $local->save($owner, ['kind' => 'time_off', 'begin' => '2027-06-01', 'end' => '2027-06-03', 'all_day' => true, 'title' => 'Family trip', 'note' => '', 'color' => '#123abc'], null);
+            $sync->run($connection);
+            $holidayLink = $em->getRepository(ShiftCalendarLink::class)->findOneBy(['connection' => $connection, 'localKey' => $holidayKey]);
+            self::assertNotNull($holidayLink);
+            self::assertSame('holidays', $holidayLink->calendarId);
+            $paidBefore = \count(array_filter($local->records($owner), fn ($record) => $record['kind'] === 'shift'));
+            $remote['holidayphone'] = ['id' => 'holidayphone', 'summary' => 'Calendar integration fixture', 'start' => ['date' => '2027-07-01'], 'end' => ['date' => '2027-07-02']];
+            $calendarIds['holidayphone'] = 'holidays';
+            $sync->run($connection);
+            $phoneHoliday = $em->getRepository(ShiftCalendarLink::class)->findOneBy(['connection' => $connection, 'eventId' => 'holidayphone', 'calendarId' => 'holidays']);
+            self::assertNotNull($phoneHoliday);
+            self::assertNotNull($phoneHoliday->localKey);
+            self::assertSame('time_off', $local->records($owner)[$phoneHoliday->localKey]['kind']);
+            self::assertCount($paidBefore, array_filter($local->records($owner), fn ($record) => $record['kind'] === 'shift'));
         } finally {
             $db->rollBack();
             $tokens->setToken($previous);
