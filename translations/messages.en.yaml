@@ -151,3 +151,6 @@ shift.google_review_save_next: "Save and next"
 shift.google_review_saved: "Entry resolved. Google changes are queued until synchronization is active."
 shift.google_review_previous: "Previous"
 shift.google_review_next: "Next / skip for now"
+
+shift.google_auto_calendars: "First connection creates or reuses your own Helyettesítések and Szabadság calendars. Approve calendar creation when connecting. Existing calendar selections are kept."
+shift.google_calendar_setup_error: "Google is connected, but calendar setup is incomplete. Choose existing calendars below, or check Google before reconnecting. Automatic sync remains paused."

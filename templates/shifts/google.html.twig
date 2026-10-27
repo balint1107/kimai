@@ -4,6 +4,7 @@
 <div class="card mb-3"><div class="card-body">
     <h2>{{ 'shift.google'|trans }}</h2>
     <p>{{ 'shift.google_help'|trans }}</p>
+    <p class="text-muted">{{ 'shift.google_auto_calendars'|trans }}</p>
     {% if not configured %}
         <div class="alert alert-info">{{ 'shift.google_setup_needed'|trans }}</div>
         <p>{{ 'shift.google_callback'|trans }} <code>https://bgamgee.ddns.net/kimai/hu/shifts/google/callback</code></p>

@@ -151,3 +151,6 @@ shift.google_review_save_next: "Mentés és következő"
 shift.google_review_saved: "Bejegyzés rendezve. A Google-módosítás az aktív szinkronizálásra vár."
 shift.google_review_previous: "Előző"
 shift.google_review_next: "Következő / egyelőre kihagyom"
+
+shift.google_auto_calendars: "Első csatlakozáskor létrejön vagy újra felhasználásra kerül a saját Helyettesítések és Szabadság naptárad. Csatlakozáskor engedélyezd a naptárak létrehozását. A korábbi naptárválasztás megmarad."
+shift.google_calendar_setup_error: "A Google-csatlakozás sikerült, de a naptárak beállítása nem teljes. Válassz meglévő naptárakat lent, vagy ellenőrizd a Google-ben az újracsatlakozás előtt. Az automatikus szinkron szünetel."

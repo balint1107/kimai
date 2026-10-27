@@ -21,7 +21,8 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  */
 final class GoogleClient
 {
-    public const SCOPES = 'https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/calendar.calendarlist.readonly';
+    public const SYNC_SCOPES = 'https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/calendar.calendarlist.readonly';
+    public const SCOPES = self::SYNC_SCOPES . ' https://www.googleapis.com/auth/calendar.app.created';
 
     /** Injects $http/$em and optional deployment credentials; $key is a base64-encoded 32-byte encryption key. */
     public function __construct(
@@ -52,7 +53,7 @@ final class GoogleClient
         return 'https://accounts.google.com/o/oauth2/v2/auth?' . http_build_query(['client_id' => $this->clientId, 'redirect_uri' => $callback, 'response_type' => 'code', 'scope' => self::SCOPES, 'access_type' => 'offline', 'prompt' => 'consent', 'state' => $state, 'code_challenge' => $challenge, 'code_challenge_method' => 'S256']);
     }
 
-    /** Exchanges one-use $code/$verifier for $connection at exact $callback, saving authenticated encrypted credentials. */
+    /** Exchanges one-use $code/$verifier for $connection at exact $callback, saving authenticated encrypted credentials with explicit calendar-creation consent. */
     public function authorize(ShiftCalendarConnection $connection, string $code, string $verifier, string $callback): void
     {
         $tokens = $this->token(['grant_type' => 'authorization_code', 'code' => $code, 'code_verifier' => $verifier, 'redirect_uri' => $callback]);
@@ -136,7 +137,7 @@ final class GoogleClient
         return $document;
     }
 
-    /** Exchanges fixed OAuth $fields without following redirects; validates scopes and access-token presence.
+    /** Exchanges fixed OAuth $fields without following redirects; validates all scopes on new consent and sync-only scopes on refresh so existing connections keep working.
      * @param array<string, mixed> $fields
      * @return array<string, mixed>
      */
@@ -151,7 +152,7 @@ final class GoogleClient
             throw new \RuntimeException('Google returned no access token', 401);
         }
         if (isset($tokens['scope'])) {
-            foreach (explode(' ', self::SCOPES) as $scope) {
+            foreach (explode(' ', ($fields['grant_type'] ?? '') === 'authorization_code' ? self::SCOPES : self::SYNC_SCOPES) as $scope) {
                 if (!\in_array($scope, explode(' ', $tokens['scope']), true)) {
                     throw new \RuntimeException('Approve all requested Google Calendar permissions', 401);
                 }

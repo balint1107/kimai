@@ -11,6 +11,7 @@ namespace App\Controller;
 
 use App\Entity\ShiftCalendarConnection;
 use App\Entity\ShiftCalendarLink;
+use App\ShiftAccounting\CalendarSync\CalendarProvisioner;
 use App\ShiftAccounting\CalendarSync\CalendarSync;
 use App\ShiftAccounting\CalendarSync\GoogleClient;
 use App\ShiftAccounting\ShiftService;
@@ -26,8 +27,8 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 #[IsGranted('IS_AUTHENTICATED_FULLY')]
 final class ShiftCalendarController extends AbstractController
 {
-    /** Injects persistence $em, Google transport $google, reconciler $sync and existing workplace/local adapters $shifts/$local plus $mapper for readable comparisons. */
-    public function __construct(private EntityManagerInterface $em, private GoogleClient $google, private CalendarSync $sync, private ShiftService $shifts, private \App\ShiftAccounting\CalendarSync\LocalCalendar $local, private \App\ShiftAccounting\CalendarSync\EventMapper $mapper)
+    /** Injects persistence $em, Google transport $google, reconciler $sync and existing workplace/local adapters $shifts/$local plus $mapper for readable comparisons and $provisioner for first-connection calendar setup. */
+    public function __construct(private EntityManagerInterface $em, private GoogleClient $google, private CalendarSync $sync, private ShiftService $shifts, private \App\ShiftAccounting\CalendarSync\LocalCalendar $local, private \App\ShiftAccounting\CalendarSync\EventMapper $mapper, private CalendarProvisioner $provisioner)
     {
     }
 
@@ -155,7 +156,7 @@ final class ShiftCalendarController extends AbstractController
         return $this->redirect($this->google->authorizationUrl($state, $challenge, $this->callback()));
     }
 
-    /** Consumes one-use OAuth state from $request; rejects missing/expired/foreign responses without storing tokens. */
+    /** Consumes one-use OAuth state from $request; rejects missing/expired/foreign responses, then prepares new-calendar defaults while leaving sync paused. */
     #[Route(path: '/callback', name: 'shift_google_callback', methods: ['GET'])]
     public function authorized(Request $request): Response
     {
@@ -171,6 +172,13 @@ final class ShiftCalendarController extends AbstractController
             // Reauthorization never resumes writes automatically.
             $connection->enabled = false;
             $this->google->authorize($connection, (string) $request->query->get('code'), $saved['verifier'], $this->callback());
+            try {
+                $this->provisioner->prepare($connection);
+            } catch (\RuntimeException) {
+                $connection->error = 'Calendar setup incomplete';
+                $this->em->flush();
+                $this->addFlash('error', 'shift.google_calendar_setup_error');
+            }
             $this->addFlash('success', 'shift.google_connected');
         } catch (\RuntimeException) {
             $this->addFlash('error', 'shift.google_connection_error');

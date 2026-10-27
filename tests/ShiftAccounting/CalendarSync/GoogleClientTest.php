@@ -59,6 +59,40 @@ class GoogleClientTest extends TestCase
         self::assertSame(2, $http->getRequestsCount());
     }
 
+    /** Legacy two-scope grants can refresh without requiring the new optional setup capability. */
+    public function testLegacyRefreshScopesRemainValid(): void
+    {
+        $http = new MockHttpClient([new MockResponse(json_encode(['access_token' => 'fresh', 'expires_in' => 3600, 'scope' => GoogleClient::SYNC_SCOPES], JSON_THROW_ON_ERROR)), new MockResponse('{"items":[]}')]);
+        $client = new GoogleClient($http, $this->createMock(EntityManagerInterface::class), 'client', 'secret', base64_encode(str_repeat('k', 32)));
+        $connection = new ShiftCalendarConnection(new User());
+        $connection->credentials = $client->encrypt(['access_token' => 'expired', 'refresh_token' => 'refresh', 'scope' => GoogleClient::SYNC_SCOPES, 'expires_at' => 0]);
+        self::assertSame([], $client->request($connection, 'GET', 'users/me/calendarList')['items'] ?? null);
+        self::assertSame(GoogleClient::SYNC_SCOPES, $client->decrypt($connection->credentials)['scope']);
+    }
+
+    /** New consent requires explicit approval of creation permission before any provisioning can occur. */
+    public function testNewConsentRequiresCalendarCreationScope(): void
+    {
+        $http = new MockHttpClient([new MockResponse(json_encode(['access_token' => 'fresh', 'refresh_token' => 'refresh', 'scope' => GoogleClient::SYNC_SCOPES], JSON_THROW_ON_ERROR))]);
+        $em = $this->createMock(EntityManagerInterface::class);
+        $em->expects(self::never())->method('flush');
+        $client = new GoogleClient($http, $em, 'client', 'secret', base64_encode(str_repeat('k', 32)));
+        $this->expectException(\RuntimeException::class);
+        $client->authorize(new ShiftCalendarConnection(new User()), 'code', 'verifier', 'https://example.com/callback');
+    }
+
+    /** Approved three-scope consent is encrypted and includes the secondary-calendar creation grant. */
+    public function testNewConsentStoresCreationScope(): void
+    {
+        $http = new MockHttpClient([new MockResponse(json_encode(['access_token' => 'fresh', 'refresh_token' => 'refresh', 'scope' => GoogleClient::SCOPES], JSON_THROW_ON_ERROR))]);
+        $client = new GoogleClient($http, $this->createMock(EntityManagerInterface::class), 'client', 'secret', base64_encode(str_repeat('k', 32)));
+        $connection = new ShiftCalendarConnection(new User());
+        $client->authorize($connection, 'code', 'verifier', 'https://example.com/callback');
+        self::assertNotNull($connection->credentials);
+        self::assertSame(GoogleClient::SCOPES, $client->decrypt($connection->credentials)['scope']);
+        self::assertStringContainsString('calendar.app.created', $client->authorizationUrl('state', 'challenge', 'https://example.com/callback'));
+    }
+
     /** Missing server configuration disables authorization without affecting the rest of Kimai. */
     public function testMissingConfiguration(): void
     {

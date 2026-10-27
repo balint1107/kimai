@@ -9,7 +9,9 @@ refresh token. Until configured, the screen shows setup instructions and sync st
 1. Create a Google Cloud project and enable **Google Calendar API**.
 2. Configure Google Auth Platform consent for your account. During testing add your
    Google account as a test user. Request `calendar.events` and
-   `calendar.calendarlist.readonly`. External applications left in Testing generally
+   `calendar.calendarlist.readonly`, plus `calendar.app.created` for automatic calendar
+   creation (declare it in Google Auth Platform → Data Access). External applications
+   left in Testing generally
    receive refresh tokens that expire after seven days; choose the appropriate
    publishing configuration before expecting unattended long-term operation.
 3. Create an OAuth client of type **Web application**. Set this exact authorized
@@ -18,9 +20,12 @@ refresh token. Until configured, the screen shows setup instructions and sync st
    `GOOGLE_CALENDAR_KEY` in the private `deploy/.env`. Generate the last value with
    `openssl rand -base64 32`. Recreate the app to load the environment. Keep this key
    with private recovery configuration: database backups alone cannot decrypt tokens.
-5. In Google Naptár, connect the intended account and approve both requested scopes.
-   Select writable calendars and the destination for new Kimai records. A dedicated
-   Helyettesítések calendar is recommended. Saving policy pauses synchronization.
+5. In Google Naptár, connect the intended account and approve all three requested scopes. On first
+   connection,
+   owned **Helyettesítések** and **Szabadság** secondary calendars are reused by name
+   (accents/case optional) or created with Budapest time. They become the selected
+   shift and time-off destinations. Existing selections are preserved on reconnect.
+   You can still select calendars manually; saving policy pauses synchronization.
 6. Choose the inclusive Budapest date range (default today through next year), define
    aliases, then request Preview. Approve/link incoming matches or ignore them. Approve
    outgoing records with Use Kimai version. Enable automatic changes only after review.
@@ -30,6 +35,35 @@ and stops access from this installation; it leaves local records, remote events 
 identity tombstones. Google account settings can revoke the OAuth grant itself.
 Never replace this connection with another Google account without reconciling links
 and selecting that account's calendars again.
+
+## Automatic calendar setup
+
+The narrow `calendar.app.created` scope permits creating secondary calendars without
+requesting calendar sharing/property administration. Existing two-scope refresh grants
+continue syncing; new consent requests the creation permission too. No client secret or
+encryption-key change is needed. Setup only runs after owner-bound OAuth completion and
+only when no calendar selections/destination exist. Preview/enable approval is still
+required before importing/exporting events; calendar setup itself does not import data.
+Primary calendars and shared writer calendars are never automatically adopted. Multiple
+matching owned calendars require manual selection. Existing owned singular/accent-free
+work-calendar names are supported. Ownership, all pages and hidden calendars are checked.
+
+Setup uses the same advisory lock as synchronization and flushes each created ID before
+starting another insert. Before each insert, an uncertainty marker is saved: after a lost
+response or server error, a retry first looks for the owned calendar. If it still cannot
+be found, setup stops for manual selection instead of risking a duplicate. Definite API
+rejections (such as missing permission) permit retry after reconnection. Partial setup
+and OAuth credentials remain saved; neither calendar nor events are deleted on failure.
+Checkpoint fields live in the existing JSON settings and require no schema migration.
+
+Validation passed 87 focused tests / 365 assertions, PHPStan core/tests, code style,
+Twig/YAML and mobile/desktop settings checks. Insert/reuse/retry cases used simulated
+Google responses. The deployed account's existing two-scope offline refresh and saved
+calendar choices were verified live with all 767 native records preserved. Live calendar
+creation awaits explicit consent to the new scope; no extra calendars were created.
+
+See [Google's calendar creation API](https://developers.google.com/workspace/calendar/api/v3/reference/calendars/insert)
+and [scope definitions](https://developers.google.com/workspace/calendar/api/auth).
 
 ## Phone entry and recognition
 
