@@ -52,6 +52,58 @@ focused checks actually run and any remaining validation limits.
 Use `mariadb-dump --single-transaction --routines --triggers` inside the database
 container, with its existing MARIADB_ROOT_PASSWORD environment variable. Store dated
 compressed dumps in the protected sibling `private/` directory. Never commit dumps.
+
+### Daily database snapshots
+
+The host's `kimai-database-snapshot.timer` runs at **03:00 Europe/Budapest**, including
+DST changes, and catches up after downtime. Its oneshot service retries failures after
+five minutes, up to three attempts per hour. This is a server systemd job; no running
+desktop session is required. Install/update it from the source checkout:
+
+```sh
+install -d -m 700 /home/balint/projects/kimai-shifts/private/database-snapshots
+sudo install -m 644 deploy/kimai-database-snapshot.service deploy/kimai-database-snapshot.timer /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now kimai-database-snapshot.timer
+sudo systemctl start kimai-database-snapshot.service
+```
+
+`deploy/kimai-database-snapshot.py` streams a transaction-consistent `kimai` dump from
+the existing MariaDB container, including routines/triggers/events, into gzip. All
+current tables use InnoDB. Passwords stay in the container environment. Files are
+mode 600 under the mode-700 sibling directory, named `kimai-YYYY-MM-DD.sql.gz` using
+Budapest dates. A same-day rerun atomically replaces that day's snapshot only after
+dump success, a nonempty result, gzip CRC validation and disk flush. An exclusive
+job lock prevents concurrent writers. No app/container restart is needed.
+
+Retention keeps **365 calendar dates including today**; files older than that window
+are deleted only after a new snapshot succeeds. Manual backups elsewhere and unrelated
+files are untouched. At the measured ~274 KB per snapshot, one year is roughly 100 MB.
+Check status with `systemctl list-timers kimai-database-snapshot.timer` and
+`journalctl -u kimai-database-snapshot.service`. Test the script with
+`python3 -m unittest discover -s deploy -p test_database_snapshot.py`.
+
+Restore a selected snapshot into a separately created disposable database first,
+using:
+
+```sh
+gzip -dc SNAPSHOT | docker exec -i kimai-shifts-db-1 sh -c \
+  'exec mariadb -uroot -p"$MARIADB_ROOT_PASSWORD" DISPOSABLE_DATABASE'
+```
+
+Never point this verification command at the production database. Compare restored
+table/record counts and accounting totals before performing a production restore;
+retain the original private Compose/OAuth encryption configuration for recovery.
+
+Initial validation passed the three retention/publication/failure tests on both the
+Mac and server, systemd unit validation, and a real daily-service run. The first
+273,885-byte snapshot restored all 40 tables successfully; 38 durable tables matched
+production row counts and data checksums, including 784 timesheets. Live sessions and
+sync-status timestamps were excluded from data comparison. The temporary database was
+removed; snapshot/directory permissions were verified as 600/700.
+
+### Upgrade rollback
+
 Before upgrades: retain the current image ID/tag, dump the database and save the
 Compose/environment configuration. Build/pin the replacement image and restart app.
 

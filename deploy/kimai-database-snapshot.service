@@ -1,0 +1,21 @@
+[Unit]
+Description=Daily Kimai database snapshot with one-year retention
+Requires=docker.service
+After=docker.service
+StartLimitIntervalSec=1h
+StartLimitBurst=3
+
+[Service]
+Type=oneshot
+User=balint
+Group=balint
+ExecStart=/usr/bin/python3 /home/balint/projects/kimai-shifts/source/deploy/kimai-database-snapshot.py
+TimeoutStartSec=10min
+Restart=on-failure
+RestartSec=5min
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/balint/projects/kimai-shifts/private/database-snapshots

@@ -63,3 +63,6 @@ yarn-error.log
 deploy/.env
 deploy/private/
 deploy/source.tar.gz
+
+# Host-side database snapshot tests
+/deploy/__pycache__/
