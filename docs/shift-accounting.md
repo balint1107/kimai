@@ -57,7 +57,11 @@ When the calendar area is narrower than 768 CSS pixels, week/month views display
 three day columns at once. Drag horizontally (mouse or touch) to reveal the remaining
 days; the toolbar and week time labels stay in place. The all-day/time axis is an
 opaque full-height column above scrolling events, with hour labels on top, so cards
-and their borders cannot show through it. The grid also supports normal horizontal trackpad
+and their borders cannot show through it. Compact and full-week layouts use the same native sticky-axis cells inside the
+body scroller. Time labels and slots share vertical scrolling, with no cloned labels
+or scroll-compensating transforms. The body is the single horizontal source for
+date headers and all-day rows; dragging updates them together. Day view uses the
+same time-axis implementation. The grid also supports normal horizontal trackpad
 scrolling and keyboard scrolling when focused. The initial mobile view is now week.
 Tap/click and release without moving opens the event editor. A short hold followed by
 dragging scrolls horizontally and/or vertically; after the grid reaches its vertical
@@ -74,6 +78,9 @@ seven-column desktop layouts, mouse/touch horizontal and vertical scrolling,
 500ms-hold vertical interval selection, release-only creation, existing-event taps,
 cancelled holds, day view and date preservation on resize. Frontend lint/build passed;
 the browser checks made no saved-record writes.
+Fast/reversed scroll checks also verify native axis anchoring before scroll handlers,
+matching header/day-column horizontal positions and matching label/slot vertical
+coordinates in both three-day and seven-day week layouts.
 
 Day/week time grids use one-hour slots and labels. Each hourly row is at least
 2.5rem (40px at the default font size); remaining vertical space expands all rows

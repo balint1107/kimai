@@ -3,6 +3,14 @@ import {DateTime} from 'luxon';
 /** Gives calendar/element a three-column viewport; handlers.range receives released ISO endpoints, handlers.tap an ISO start and handlers.event a saved event ID. Returns sizing/editor guards. */
 export function compactCalendar(calendar, element, handlers) {
     let compact=false, layoutKey='', gesture=null, ignoreUntil=0;
+    /** Returns the shared body scroller for week, month or day; its rows and native sticky axis share vertical movement. */
+    function bodyScroller() { return element.querySelector('.fc-scroller-liquid-absolute') || [...element.querySelectorAll('.fc-scroller')].at(-1); }
+    /** Mirrors the body's horizontal offset into date headers/all-day rows; there is no separate vertical axis or label synchronization. */
+    function synchronize() {
+        const source=bodyScroller();
+        if (!source) {return;}
+        for (const scroller of element.querySelectorAll('.fc-scroller')) {if(scroller!==source && scroller.scrollLeft!==source.scrollLeft){scroller.scrollLeft=source.scrollLeft;}}
+    }
     /** Returns whether a click/release may open an editor; movement suppresses the synthetic click following a drag. */
     function canOpen() { return !gesture?.selecting && performance.now()>ignoreUntil; }
     /** Sizes the whole seven-day canvas inside a horizontally scrollable viewport, leaving toolbar and day view at normal width. */
@@ -11,18 +19,19 @@ export function compactCalendar(calendar, element, handlers) {
         if (!viewport) {return;}
         const type=calendar.view.type, narrow=element.clientWidth<768 && ['timeGridWeek','dayGridMonth'].includes(type);
         const axis=type==='timeGridWeek' ? element.querySelector('.fc-timegrid-axis')?.getBoundingClientRect().width || 0 : 0;
-        const width=viewport.clientWidth, key=`${narrow}:${type}:${width}:${axis}`;
-        if (layoutKey===key) {return;}
+        const width=bodyScroller()?.clientWidth || viewport.clientWidth, key=`${narrow}:${type}:${width}:${axis}`;
+        if (layoutKey===key) {synchronize();return;}
         layoutKey=key;
         element.style.setProperty('--shift-calendar-width',`${axis+(width-axis)*7/3}px`);
-        element.style.setProperty('--shift-calendar-pan',`${viewport.scrollLeft}px`);
         element.classList.toggle('shift-three-days',narrow);
-        viewport.tabIndex=narrow ? 0 : -1;
+        viewport.tabIndex=-1;
+        if(bodyScroller()){bodyScroller().tabIndex=0;}
         if (compact!==narrow) {
             compact=narrow;
             calendar.batchRendering(()=>{calendar.setOption('selectable',!compact);calendar.setOption('editable',!compact);});
         }
         calendar.updateSize();
+        synchronize();
     }
     /** Returns the fractional wall-clock minute at client y, clamped to this week's displayed day; used only for a timed week grid. */
     function minuteAt(y) {
@@ -43,11 +52,12 @@ export function compactCalendar(calendar, element, handlers) {
     function start(event) {
         if (!compact || !event.isPrimary || event.button!==0 || !event.target.closest('.fc-view-harness')) {return;}
         const viewport=element.querySelector('.fc-view-harness');
-        const scroller=element.querySelector('.fc-scroller-liquid-absolute') || [...element.querySelectorAll('.fc-scroller')].find(el=>el.scrollHeight>el.clientHeight);
+        const scroller=bodyScroller();
         const column=calendar.view.type==='timeGridWeek' && [...element.querySelectorAll('.fc-timegrid-col[data-date]')].find(el=>{const r=el.getBoundingClientRect();return event.clientX>=r.left&&event.clientX<r.right;});
         const grid=scroller?.getBoundingClientRect();
-        const timed=column && grid && event.clientY>=grid.top && event.clientY<grid.bottom && event.clientX>=viewport.getBoundingClientRect().left+(element.querySelector('.fc-timegrid-axis')?.getBoundingClientRect().width || 0);
-        gesture={id:event.pointerId,x:event.clientX,y:event.clientY,left:viewport.scrollLeft,top:scroller?.scrollTop || 0,pageTop:window.scrollY,viewport,scroller,dragging:false,selecting:false,eventId:event.target.closest('.fc-event')?.dataset.shiftEventId,day:event.target.closest('.fc-daygrid-day[data-date]')?.dataset.date,anchor:timed?{date:column.dataset.date,minute:minuteAt(event.clientY),rowHeight:element.querySelector('.fc-timegrid-slot-lane').getBoundingClientRect().height}:null};
+        const inAxis=calendar.view.type==='timeGridWeek' && event.clientX<viewport.getBoundingClientRect().left+(element.querySelector('.fc-timegrid-axis')?.getBoundingClientRect().width || 0);
+        const timed=column && grid && event.clientY>=grid.top && event.clientY<grid.bottom && !inAxis;
+        gesture={id:event.pointerId,x:event.clientX,y:event.clientY,left:scroller.scrollLeft,top:scroller?.scrollTop || 0,pageTop:window.scrollY,viewport,scroller,dragging:false,selecting:false,inAxis,eventId:inAxis?undefined:event.target.closest('.fc-event')?.dataset.shiftEventId,day:inAxis?undefined:event.target.closest('.fc-daygrid-day[data-date]')?.dataset.date,anchor:timed?{date:column.dataset.date,minute:minuteAt(event.clientY),rowHeight:element.querySelector('.fc-timegrid-slot-lane').getBoundingClientRect().height}:null};
         ignoreUntil=0;
         if (gesture.anchor) {
             gesture.timer=setTimeout(()=>{
@@ -76,7 +86,8 @@ export function compactCalendar(calendar, element, handlers) {
         }
         if (gesture.dragging) {
             event.preventDefault();
-            gesture.viewport.scrollLeft=gesture.left-dx;
+            gesture.scroller.scrollLeft=gesture.left-dx;
+            synchronize();
             if (gesture.scroller) {gesture.scroller.scrollTop=gesture.top-dy;}
             const consumed=gesture.scroller ? gesture.scroller.scrollTop-gesture.top : 0;
             window.scrollTo(window.scrollX,gesture.pageTop-dy-consumed);
@@ -92,7 +103,7 @@ export function compactCalendar(calendar, element, handlers) {
         const start=tap && eventId===undefined ? (gesture.anchor ? DateTime.fromISO(gesture.anchor.date,{zone:'Europe/Budapest'}).set({hour:Math.floor(gesture.anchor.minute/60),minute:Math.floor(gesture.anchor.minute%60/15)*15}).toISO() : gesture.day ? `${gesture.day}T08:00` : null) : null;
         if (gesture.selecting) {calendar.unselect();}
         gesture.viewport.classList.remove('shift-selecting');
-        if (gesture.dragging || gesture.selecting || eventId!==undefined || start || event.type==='pointercancel' || Math.hypot(event.clientX-gesture.x,event.clientY-gesture.y)>8) {ignoreUntil=performance.now()+500;}
+        if (gesture.dragging || gesture.selecting || gesture.inAxis || eventId!==undefined || start || event.type==='pointercancel' || Math.hypot(event.clientX-gesture.x,event.clientY-gesture.y)>8) {ignoreUntil=performance.now()+500;}
         gesture=null;
         if (range) {handlers.range(range);}else if (eventId!==undefined) {handlers.event(eventId);}else if (start) {handlers.tap(start);}
     }
@@ -102,8 +113,8 @@ export function compactCalendar(calendar, element, handlers) {
     document.addEventListener('pointercancel',finish,true);
     /** Reserves long holds inside the compact grid for interval selection rather than the browser's context menu. */
     element.addEventListener('contextmenu',event=>{if(compact && event.target.closest('.fc-view-harness')){event.preventDefault();}});
-    /** Keeps the week time axis over its original viewport position while every day/header scrolls together. */
-    element.addEventListener('scroll',event=>{if (event.target.matches('.fc-view-harness')) {element.style.setProperty('--shift-calendar-pan',`${event.target.scrollLeft}px`);}},true);
+    /** Uses one horizontal source across all view sizes; sticky time cells remain native to the vertically scrolling grid. */
+    element.addEventListener('scroll',event=>{if (event.target===bodyScroller()) {synchronize();}},true);
     /** Blocks the trailing synthetic grid click after a swipe, including swipes starting on an existing event. */
     element.addEventListener('click',event=>{if (event.target.closest('.fc-view-harness') && !canOpen()) {event.preventDefault();event.stopImmediatePropagation();}},true);
     new ResizeObserver(()=>requestAnimationFrame(update)).observe(element);
