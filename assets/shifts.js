@@ -282,7 +282,7 @@ function initialize() {
             /** Returns wrapped text nodes for FullCalendar info; only cancellation needs a state label. */
             eventContent:info=>{const label=document.createElement('div');label.className='shift-event-label';label.textContent=info.event.extendedProps.kind==='event'?`${info.timeText} ${info.event.title}`:info.event.extendedProps.kind==='time_off'?`${info.timeText} ${info.event.extendedProps.event_title?info.event.title:text.time_off+(info.event.title?' · '+info.event.title:'')}`:`${info.timeText} ${info.event.title}${info.event.extendedProps.state==='cancelled'?' · '+text.cancelled:''}`;return {domNodes:[label]};},
             /** Stores info.el's stable tap identity and tooltip, keeping completion/planning state exclusive to reports. */
-            eventDidMount:info=>{info.el.dataset.shiftEventId=info.event.id;info.el.title=info.event.extendedProps.kind?`${info.event.title || text.time_off}${info.event.extendedProps.note&&info.event.extendedProps.note!==info.event.title?' · '+info.event.extendedProps.note:''}`:`${info.event.title}${info.event.extendedProps.state==='cancelled'?' · '+text.cancelled:''} · ${money.format(info.event.extendedProps.amount)}`;},
+            eventDidMount:info=>{info.el.dataset.shiftEventId=info.event.id;info.el.title=info.event.extendedProps.kind?`${info.event.title || text.time_off}${info.event.extendedProps.note&&info.event.extendedProps.note!==info.event.title?' · '+info.event.extendedProps.note:''}`:`${info.event.title}${info.event.extendedProps.state==='cancelled'?' · '+text.cancelled:''}\n${info.event.extendedProps.description || ''}\n${money.format(info.event.extendedProps.amount)}`;},
             eventDrop:move,eventResize:move,
         });
         calendar.render();

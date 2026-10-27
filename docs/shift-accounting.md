@@ -80,6 +80,9 @@ columns stay aligned, and the all-day axis label can use its full width. Drag/re
 precision, and saved shift times are unchanged. Event labels wrap inside their cards,
 including long workplace names and personal-holiday notes; short cards clip vertically
 rather than spilling outside, with the existing tooltip showing the full label.
+Shift titles show only the workplace. EFO/Számla and the saved hourly rate appear in
+the event description/tooltip, followed by any free note; the editor keeps these fields
+separate. Google exports use the same workplace-only title convention.
 Calendar events and tooltips omit planned/completed/in-progress labels and use the
 same border style for those states. Cancellation stays labeled and struck through;
 report totals and their automatic state calculation are unchanged.

@@ -228,7 +228,7 @@ final class ShiftService
         return $shift->getBegin() <= $now ? 'in_progress' : 'planned';
     }
 
-    /** Serializes $shift for the calendar/editor; overlap detection stays a non-blocking warning.
+    /** Serializes $shift with a workplace-only calendar title and category/rate description; saved free notes and non-blocking overlap warnings stay separate.
      * @return array<string, mixed>
      */
     public function record(Timesheet $shift): array
@@ -236,7 +236,8 @@ final class ShiftService
         $state = $this->state($shift);
 
         return [
-            'id' => $shift->getId(), 'title' => $shift->getProject()?->getCustomer()?->getName() . ' · ' . $shift->getActivity()?->getName(),
+            'id' => $shift->getId(), 'title' => $shift->getProject()?->getCustomer()?->getName(),
+            'description' => $shift->getActivity()?->getName() . ', ' . (int) $shift->getHourlyRate() . (($shift->getDescription() ?? '') !== '' ? "\n\n" . $shift->getDescription() : ''),
             'start' => $shift->getBegin()?->format(\DateTimeInterface::ATOM), 'end' => $shift->getEnd()?->format(\DateTimeInterface::ATOM),
             'color' => $state === 'cancelled' ? '#868e96' : $shift->getProject()?->getCustomer()?->getColor(),
             'workplace' => $shift->getProject()?->getCustomer()?->getId(), 'category' => $shift->getActivity()?->getName(),
