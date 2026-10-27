@@ -16,16 +16,16 @@ body:has(.shift-app) .page-wrapper { margin-left: 0 !important; }
 #shift-calendar { min-width: 0; max-width: 100%; }
 #shift-calendar .fc-view-harness { overflow-x: hidden; }
 #shift-calendar .fc-scroller-liquid-absolute { overflow-x: auto !important; }
-#shift-calendar.shift-three-days .fc-view-harness { touch-action: none; overscroll-behavior-x: contain; user-select: none; -webkit-touch-callout: none; }
-#shift-calendar.shift-three-days .fc-scroller { touch-action: none; }
+#shift-calendar .fc-view-harness { touch-action: none; overscroll-behavior-x: contain; user-select: none; -webkit-touch-callout: none; }
+#shift-calendar .fc-scroller { touch-action: none; }
 #shift-calendar .fc-timegrid-now-indicator-container { pointer-events: none; }
 #shift-calendar.shift-three-days .fc-col-header,
 #shift-calendar.shift-three-days .fc-daygrid-body,
 #shift-calendar.shift-three-days .fc-daygrid-body > table,
 #shift-calendar.shift-three-days .fc-timegrid-body,
 #shift-calendar.shift-three-days .fc-timegrid-body table { width: var(--shift-calendar-width) !important; min-width: var(--shift-calendar-width) !important; }
-#shift-calendar.shift-three-days .fc-view-harness:active { cursor: grabbing; }
-#shift-calendar.shift-three-days .fc-view-harness.shift-selecting { cursor: crosshair; }
+#shift-calendar .fc-view-harness:active { cursor: grabbing; }
+#shift-calendar .fc-view-harness.shift-selecting { cursor: crosshair; }
 #shift-calendar .fc-timegrid-slots { z-index: auto; }
 #shift-calendar .fc-timegrid-axis,
 #shift-calendar .fc-timegrid-slot-label { position: sticky; left: 0; z-index: 100; background: var(--tblr-bg-surface, #fff); }

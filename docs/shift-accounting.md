@@ -65,12 +65,13 @@ same time-axis implementation. The grid also supports normal horizontal trackpad
 scrolling and keyboard scrolling when focused. The initial mobile view is now week.
 Tap/click and release without moving opens the event editor. A short hold followed by
 dragging scrolls horizontally and/or vertically; after the grid reaches its vertical
-edge, vertical movement scrolls the page. On week views, hold still for 500ms, then
+edge, vertical movement scrolls the page. In week and day views at any window width,
+hold still for 500ms, then
 drag vertically to highlight a time interval in 15-minute steps; releasing opens the
-editor with that range. Cancelled gestures do not open the editor. In compact views,
-swiping an event scrolls instead of moving it; tap to edit its dates. Desktop
-drag-to-move/resize and range selection remain available,
-and day view retains its full-width layout. Resizing switches between these modes
+editor with that range. Cancelled gestures do not open the editor. The same short-hold
+panning and release-only tap model applies to month view at every width. Swiping an
+event scrolls instead of moving/resizing it; tap to edit its dates. This also applies
+to full-width desktop calendars. Day view retains its single-day layout. Resizing switches between these modes
 without replacing the selected date/view or changing saved records.
 
 Validated through the public proxy at 390/700/1280px: three-column week/month and
@@ -78,6 +79,8 @@ seven-column desktop layouts, mouse/touch horizontal and vertical scrolling,
 500ms-hold vertical interval selection, release-only creation, existing-event taps,
 cancelled holds, day view and date preservation on resize. Frontend lint/build passed;
 the browser checks made no saved-record writes.
+The universal gesture matrix also passes mouse and emulated-touch checks in week
+and day views at both 390px and 1280px, plus desktop event taps and cancelled holds.
 Fast/reversed scroll checks also verify native axis anchoring before scroll handlers,
 matching header/day-column horizontal positions and matching label/slot vertical
 coordinates in both three-day and seven-day week layouts.

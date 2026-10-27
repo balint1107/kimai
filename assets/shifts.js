@@ -267,7 +267,7 @@ function initialize() {
     if (calendarElement) {
         calendar=new Calendar(calendarElement,{
             plugins:[dayGridPlugin,timeGridPlugin,interactionPlugin,zonePlugin],locale:huLocale,timeZone:'Europe/Budapest',firstDay:1,
-            initialView:'timeGridWeek',height:Math.max(560,window.innerHeight-350),expandRows:true,scrollTime:'07:00:00',nowIndicator:true,editable:true,selectable:true,
+            initialView:'timeGridWeek',height:Math.max(560,window.innerHeight-350),expandRows:true,scrollTime:'07:00:00',nowIndicator:true,editable:false,selectable:false,
             headerToolbar:{left:'prev,next today',center:'title',right:'dayGridMonth,timeGridWeek,timeGridDay'},slotDuration:'01:00:00',slotLabelInterval:'01:00:00',snapDuration:'00:15:00',
             eventTimeFormat:{hour:'2-digit',minute:'2-digit',hour12:false},slotLabelFormat:{hour:'2-digit',minute:'2-digit',hour12:false},
             dateClick:info=>{if(!calendarInteraction || calendarInteraction.canOpen()){edit({start:info.dateStr.length===10?`${info.dateStr}T08:00`:info.dateStr});}},

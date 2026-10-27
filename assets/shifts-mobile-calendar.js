@@ -1,8 +1,8 @@
 import {DateTime} from 'luxon';
 
-/** Gives calendar/element a three-column viewport; handlers.range receives released ISO endpoints, handlers.tap an ISO start and handlers.event a saved event ID. Returns sizing/editor guards. */
+/** Applies one gesture model to calendar/element at every width, narrowing week/month columns when needed; handlers.range receives released ISO endpoints, handlers.tap an ISO start and handlers.event a saved event ID. Returns sizing/editor guards. */
 export function compactCalendar(calendar, element, handlers) {
-    let compact=false, layoutKey='', gesture=null, ignoreUntil=0;
+    let layoutKey='', gesture=null, ignoreUntil=0;
     /** Returns the shared body scroller for week, month or day; its rows and native sticky axis share vertical movement. */
     function bodyScroller() { return element.querySelector('.fc-scroller-liquid-absolute') || [...element.querySelectorAll('.fc-scroller')].at(-1); }
     /** Mirrors the body's horizontal offset into date headers/all-day rows; there is no separate vertical axis or label synchronization. */
@@ -26,14 +26,10 @@ export function compactCalendar(calendar, element, handlers) {
         element.classList.toggle('shift-three-days',narrow);
         viewport.tabIndex=-1;
         if(bodyScroller()){bodyScroller().tabIndex=0;}
-        if (compact!==narrow) {
-            compact=narrow;
-            calendar.batchRendering(()=>{calendar.setOption('selectable',!compact);calendar.setOption('editable',!compact);});
-        }
         calendar.updateSize();
         synchronize();
     }
-    /** Returns the fractional wall-clock minute at client y, clamped to this week's displayed day; used only for a timed week grid. */
+    /** Returns the fractional wall-clock minute at client y, clamped to the displayed day; used only for timed week/day grids. */
     function minuteAt(y) {
         const row=element.querySelector('.fc-timegrid-slot-lane').getBoundingClientRect();
         return Math.max(0,Math.min(1439.999,(y-row.top)/row.height*60));
@@ -48,14 +44,14 @@ export function compactCalendar(calendar, element, handlers) {
         gesture.range={start:iso(start),end:iso(end)};
         calendar.select(gesture.range);
     }
-    /** Tracks a primary pointer; a stationary 500ms week hold arms selection, while earlier movement chooses two-axis scrolling. */
+    /** Tracks a primary pointer; a stationary 500ms timed-grid hold arms selection, while earlier movement chooses two-axis scrolling. */
     function start(event) {
-        if (!compact || !event.isPrimary || event.button!==0 || !event.target.closest('.fc-view-harness')) {return;}
+        if (!event.isPrimary || event.button!==0 || !event.target.closest('.fc-view-harness')) {return;}
         const viewport=element.querySelector('.fc-view-harness');
         const scroller=bodyScroller();
-        const column=calendar.view.type==='timeGridWeek' && [...element.querySelectorAll('.fc-timegrid-col[data-date]')].find(el=>{const r=el.getBoundingClientRect();return event.clientX>=r.left&&event.clientX<r.right;});
+        const column=['timeGridWeek','timeGridDay'].includes(calendar.view.type) && [...element.querySelectorAll('.fc-timegrid-col[data-date]')].find(el=>{const r=el.getBoundingClientRect();return event.clientX>=r.left&&event.clientX<r.right;});
         const grid=scroller?.getBoundingClientRect();
-        const inAxis=calendar.view.type==='timeGridWeek' && event.clientX<viewport.getBoundingClientRect().left+(element.querySelector('.fc-timegrid-axis')?.getBoundingClientRect().width || 0);
+        const inAxis=['timeGridWeek','timeGridDay'].includes(calendar.view.type) && event.clientX<viewport.getBoundingClientRect().left+(element.querySelector('.fc-timegrid-axis')?.getBoundingClientRect().width || 0);
         const timed=column && grid && event.clientY>=grid.top && event.clientY<grid.bottom && !inAxis;
         gesture={id:event.pointerId,x:event.clientX,y:event.clientY,left:scroller.scrollLeft,top:scroller?.scrollTop || 0,pageTop:window.scrollY,viewport,scroller,dragging:false,selecting:false,inAxis,eventId:inAxis?undefined:event.target.closest('.fc-event')?.dataset.shiftEventId,day:inAxis?undefined:event.target.closest('.fc-daygrid-day[data-date]')?.dataset.date,anchor:timed?{date:column.dataset.date,minute:minuteAt(event.clientY),rowHeight:element.querySelector('.fc-timegrid-slot-lane').getBoundingClientRect().height}:null};
         ignoreUntil=0;
@@ -93,7 +89,7 @@ export function compactCalendar(calendar, element, handlers) {
             window.scrollTo(window.scrollX,gesture.pageTop-dy-consumed);
         }
     }
-    /** On release opens one range/event/cell editor; handling compact taps directly avoids FullCalendar's post-scroll click suppression. Cancellation never opens an editor. */
+    /** On release opens one range/event/cell editor; handling all taps directly avoids FullCalendar's post-scroll click suppression. Cancellation never opens an editor. */
     function finish(event) {
         if (!gesture || gesture.id!==event.pointerId) {return;}
         clearTimeout(gesture.timer);
@@ -111,8 +107,8 @@ export function compactCalendar(calendar, element, handlers) {
     document.addEventListener('pointermove',move,{capture:true,passive:false});
     document.addEventListener('pointerup',finish,true);
     document.addEventListener('pointercancel',finish,true);
-    /** Reserves long holds inside the compact grid for interval selection rather than the browser's context menu. */
-    element.addEventListener('contextmenu',event=>{if(compact && event.target.closest('.fc-view-harness')){event.preventDefault();}});
+    /** Reserves long holds inside every grid for the shared interval gesture instead of the browser's context menu. */
+    element.addEventListener('contextmenu',event=>{if(event.target.closest('.fc-view-harness')){event.preventDefault();}});
     /** Uses one horizontal source across all view sizes; sticky time cells remain native to the vertically scrolling grid. */
     element.addEventListener('scroll',event=>{if (event.target===bodyScroller()) {synchronize();}},true);
     /** Blocks the trailing synthetic grid click after a swipe, including swipes starting on an existing event. */
