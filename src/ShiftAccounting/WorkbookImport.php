@@ -201,7 +201,7 @@ final class WorkbookImport
                 return;
             }
             $places = [];
-            foreach ($this->shifts->workplaces() as $place) {
+            foreach ($this->shifts->workplaces($batch->owner) as $place) {
                 $places[$place['name']] = $place['id'];
             }
             foreach ($this->items($batch) as $item) {
@@ -210,7 +210,7 @@ final class WorkbookImport
                     continue;
                 }
                 if (!isset($places[$data['workplace']])) {
-                    $place = $this->shifts->workplace($data['workplace'], $data['rate'] ?? 0.0, $data['category']);
+                    $place = $this->shifts->workplace($batch->owner, $data['workplace'], $data['rate'] ?? 0.0, $data['category']);
                     $places[$data['workplace']] = $place->getId();
                 }
                 $data['workplace'] = $places[$data['workplace']];

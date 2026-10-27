@@ -1,17 +1,16 @@
-{% extends 'base.html.twig' %}
+{% extends 'shifts/document.html.twig' %}
 {% block stylesheets %}
     {{ parent() }}
     {{ encore_entry_link_tags('shifts') }}
 {% endblock %}
-{% block head %}
-    {{ parent() }}
-    {{ encore_entry_script_tags('shifts') }}
-{% endblock %}
-{% block main %}
+{% block content %}
 <div class="shift-app">
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
         <div><h1 class="mb-1">{{ 'shift.title'|trans }}</h1><div class="text-muted">{{ 'shift.subtitle'|trans }}</div></div>
-        <div class="d-flex gap-2"><a class="btn" href="{{ path('logout') }}">{{ 'logout'|trans }}</a></div>
+        <div class="d-flex flex-wrap align-items-center gap-2"><span class="text-muted">{{ app.user.userIdentifier }}</span>
+            <a class="btn" href="{{ path('shift_account') }}">{{ 'profile.title'|trans }}</a>
+            {% if is_granted('ROLE_ADMIN') %}<a class="btn" href="{{ path('shift_users') }}">{{ 'users'|trans }}</a>{% endif %}
+            <a class="btn" href="{{ path('logout') }}">{{ 'logout'|trans }}</a></div>
     </div>
     <nav class="nav nav-pills gap-1 mb-3" aria-label="{{ 'shift.navigation'|trans }}">
         {% for name in ['calendar','summary','workplaces','imports'] %}

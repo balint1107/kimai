@@ -1,4 +1,5 @@
 {% extends 'shifts/layout.html.twig' %}
+{% block scripts %}{{ parent() }}{{ encore_entry_script_tags('shifts') }}{% endblock %}
 {% block accounting %}
 {% set texts = {} %}
 {% for key in ['completed','planned','in_progress','cancelled','count','hours','amount','period','category','state','workplace','saved','delete_confirm','overlap','invalid_time','review','save','new_shift','total_amount','all','select_workplace','new_workplace','edit_workplace','time_off','new_event','event','shift_type','delete_event_confirm','google_sync_error'] %}

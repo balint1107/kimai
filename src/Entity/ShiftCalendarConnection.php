@@ -15,6 +15,7 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Entity]
 #[ORM\Table(name: 'shift_calendar_connection')]
 #[ORM\UniqueConstraint(columns: ['owner_id'])]
+#[ORM\UniqueConstraint(columns: ['account_id'])]
 class ShiftCalendarConnection
 {
     #[ORM\Id]
@@ -23,6 +24,9 @@ class ShiftCalendarConnection
     public ?int $id = null;
     #[ORM\Column(type: 'text', nullable: true)]
     public ?string $credentials = null;
+    /** Canonical primary-calendar identity; reconnecting a different Google account is rejected. */
+    #[ORM\Column(name: 'account_id', type: 'string', length: 255, nullable: true)]
+    public ?string $accountId = null;
     /** @var array{calendars:list<string>,destination:string,aliases:array<string,string>,from:string,to:string,cursors:array<string,string>,masters?:array<string,array<string,bool>>,previewed?:bool,plain_events?:bool,holiday_calendar?:string,setup_calendars?:array{work?:string,holiday?:string},pending_calendar_creation?:'work'|'holiday'} */
     #[ORM\Column(type: 'json')]
     public array $settings;

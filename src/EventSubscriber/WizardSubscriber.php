@@ -41,6 +41,7 @@ class WizardSubscriber implements EventSubscriberInterface
         ];
     }
 
+    /** Skips legacy onboarding for standalone shift/2FA routes; $event otherwise follows native wizard rules. */
     public function onKernelRequest(RequestEvent $event): void
     {
         // ignore sub-requests and un-authenticated events
@@ -58,6 +59,9 @@ class WizardSubscriber implements EventSubscriberInterface
         // the matched route name is used on purpose: matching on the raw request URI
         // would allow to bypass this check by adding e.g. "?foo=/wizard/" to any URL
         $route = $request->attributes->get('_route');
+        if (\is_string($route) && (str_starts_with($route, 'shift_') || \in_array($route, ['user_profile_2fa', 'user_profile_2fa_deactivate'], true))) {
+            return;
+        }
 
         // never trigger on wizard routes themselves — except the virtual "next"
         // route, which intentionally re-enters this subscriber so that the user

@@ -9,11 +9,6 @@
 
 namespace App\Controller;
 
-use App\Configuration\LocaleService;
-use App\Entity\User;
-use App\Event\ConfigureMainMenuEvent;
-use App\Repository\UserRepository;
-use Psr\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
@@ -28,61 +23,10 @@ final class HomepageController extends AbstractController
 {
     public const DEFAULT_ROUTE = 'shift_calendar';
 
+    /** Returns the current frontend for $request's active locale; legacy dashboard preferences cannot escape the application. */
     #[Route(path: '', defaults: [], name: 'homepage', methods: ['GET'])]
-    public function homepage(Request $request, LocaleService $service, EventDispatcherInterface $eventDispatcher, UserRepository $userRepository): Response
+    public function homepage(Request $request): Response
     {
-        $user = $this->getUser();
-        $userLanguage = $user->getLanguage();
-        $requestLanguage = $request->getLocale();
-
-        if (empty($requestLanguage)) {
-            $requestLanguage = User::DEFAULT_LANGUAGE;
-        }
-
-        if (empty($userLanguage)) {
-            $userLanguage = $requestLanguage;
-        }
-
-        // the locale in the URL is the one used for translating the UI, so only translated locales can be used.
-        // a user might still have a non-translated language stored (eg. an imported user from Kimai 1 or a
-        // profile that was not saved since language and formatting locale were split), which would end in a 404.
-        $userLanguage = $service->getNearestTranslationLocale($userLanguage);
-        $requestLanguage = $service->getNearestTranslationLocale($requestLanguage);
-
-        $routes = [];
-
-        $userRoute = $user->getPreferenceValue('login_initial_view');
-        if (\is_string($userRoute)) {
-            $event = new ConfigureMainMenuEvent();
-            $eventDispatcher->dispatch($event);
-            $menu = $event->findById($userRoute);
-            if ($menu !== null && \count($menu->getRouteArgs()) === 0 && $menu->getRoute() !== null) {
-                $userRoute = $menu->getRoute();
-            }
-            $routes[] = [$userRoute, $userLanguage];
-            $routes[] = [$userRoute, $requestLanguage];
-            $routes[] = [$userRoute, User::DEFAULT_LANGUAGE];
-        }
-
-        $routes[] = [self::DEFAULT_ROUTE, $userLanguage];
-        $routes[] = [self::DEFAULT_ROUTE, $requestLanguage];
-
-        foreach ($routes as $routeSettings) {
-            $route = $routeSettings[0];
-            $language = $routeSettings[1];
-            try {
-                return $this->redirectToRoute($route, ['_locale' => $language]);
-            } catch (\Exception $ex) {
-                if ($route === $userRoute) {
-                    // fix invalid routes from old plugins / versions
-                    $user->setPreferenceValue('login_initial_view', 'dashboard');
-                    $userRepository->saveUser($user);
-                } else {
-                    $this->logException($ex);
-                }
-            }
-        }
-
-        return $this->redirectToRoute(self::DEFAULT_ROUTE, ['_locale' => User::DEFAULT_LANGUAGE]);
+        return $this->redirectToRoute('shift_calendar', ['_locale' => $request->getLocale()]);
     }
 }

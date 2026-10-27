@@ -2218,6 +2218,20 @@
         <source>fill_day.help</source>
         <target>If no duration is entered, the remaining expected working time of the day is used.</target>
       </trans-unit>
+      <trans-unit id="shift.account_admin" resname="shift.account_admin"><source>shift.account_admin</source><target>Administrator</target></trans-unit>
+      <trans-unit id="shift.account_user" resname="shift.account_user"><source>shift.account_user</source><target>User</target></trans-unit>
+      <trans-unit id="shift.account_new" resname="shift.account_new"><source>shift.account_new</source><target>New user</target></trans-unit>
+      <trans-unit id="shift.account_edit" resname="shift.account_edit"><source>shift.account_edit</source><target>Edit user</target></trans-unit>
+      <trans-unit id="shift.account_require_password" resname="shift.account_require_password"><source>shift.account_require_password</source><target>Require a new password on next login</target></trans-unit>
+      <trans-unit id="shift.account_private_help" resname="shift.account_private_help"><source>shift.account_private_help</source><target>Each user has private workplaces, rates, calendars and earnings.</target></trans-unit>
+      <trans-unit id="shift.account_edit_help" resname="shift.account_edit_help"><source>shift.account_edit_help</source><target>Leave password empty to keep it. Disable accounts to retain their history. Your own access cannot be disabled here. Change your own password from Profile.</target></trans-unit>
+      <trans-unit id="shift.account_2fa" resname="shift.account_2fa"><source>shift.account_2fa</source><target>Two-factor authentication</target></trans-unit>
+      <trans-unit id="shift.account_secret" resname="shift.account_secret"><source>shift.account_secret</source><target>Manual setup key</target></trans-unit>
+      <trans-unit id="shift.account_recovery" resname="shift.account_recovery"><source>shift.account_recovery</source><target>If you forgot your password, ask an administrator to reset it.</target></trans-unit>
+      <trans-unit id="shift.account_role" resname="shift.account_role"><source>shift.account_role</source><target>Role</target></trans-unit>
+      <trans-unit id="shift.account_new_help" resname="shift.account_new_help"><source>shift.account_new_help</source><target>Set an initial password and share it privately. New users start with empty, private records.</target></trans-unit>
+      <trans-unit id="shift.account_login" resname="shift.account_login"><source>shift.account_login</source><target>Sign in</target></trans-unit>
+      <trans-unit id="shift.account_saved" resname="shift.account_saved"><source>shift.account_saved</source><target>Account saved.</target></trans-unit>
     </body>
   </file>
 </xliff>

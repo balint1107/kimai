@@ -29,13 +29,16 @@ final class ShiftCalendarCommand extends Command
         parent::__construct();
     }
 
-    /** Runs each enabled owner independently, restores previous security context and reports only a non-sensitive status to $output. */
+    /** Runs each enabled connection with an active owner independently, restores previous security context and reports only a non-sensitive status to $output. */
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $previous = $this->tokens->getToken();
         $failed = false;
         try {
             foreach ($this->em->getRepository(ShiftCalendarConnection::class)->findBy(['enabled' => true]) as $connection) {
+                if (!$connection->owner->isEnabled()) {
+                    continue;
+                }
                 $this->tokens->setToken(new UsernamePasswordToken($connection->owner, 'secured_area', $connection->owner->getRoles()));
                 try {
                     $this->sync->run($connection);

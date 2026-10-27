@@ -21,7 +21,7 @@ class ShiftServiceTest extends TestCase
     public function testRejectsUnknownWorkplace(): void
     {
         $this->expectException(\InvalidArgumentException::class);
-        $this->service()->workplace(' Ismeretlen ', 7500, 'EFO');
+        $this->service()->workplace(new \App\Entity\User(), ' Ismeretlen ', 7500, 'EFO');
     }
 
     /** Rejects an unknown category on the server even if a client bypasses the dropdown. */
@@ -30,11 +30,14 @@ class ShiftServiceTest extends TestCase
         $customer = new \App\Entity\Customer('Test workplace');
         $customer->setMetaField((new \App\Entity\CustomerMeta())->setName('shift_workplace')->setValue('1'));
         $em = $this->createMock(\Doctrine\ORM\EntityManagerInterface::class);
-        $em->method('find')->willReturn($customer);
+        $owner = new \App\Entity\User();
+        $repository = $this->createMock(\Doctrine\ORM\EntityRepository::class);
+        $repository->method('findOneBy')->willReturn(new \App\Entity\ShiftWorkplace($owner, $customer, 'test'));
+        $em->method('getRepository')->willReturn($repository);
         $native = (new \ReflectionClass(\App\Timesheet\TimesheetService::class))->newInstanceWithoutConstructor();
         $service = new ShiftService($em, $native);
         $this->expectException(\InvalidArgumentException::class);
-        $service->save(new \App\Entity\User(), ['workplace' => 1, 'category' => 'Unknown', 'rate' => 7500]);
+        $service->save($owner, ['workplace' => 1, 'category' => 'Unknown', 'rate' => 7500]);
     }
 
     /** Exercises pure methods without constructing persistence collaborators. */

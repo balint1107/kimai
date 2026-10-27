@@ -1970,6 +1970,20 @@
         <source>user_access_all</source>
         <target state="translated">Hozzáférés engedélyezése minden felhasználónak</target>
       </trans-unit>
+      <trans-unit id="shift.account_admin" resname="shift.account_admin"><source>shift.account_admin</source><target>Adminisztrátor</target></trans-unit>
+      <trans-unit id="shift.account_user" resname="shift.account_user"><source>shift.account_user</source><target>Felhasználó</target></trans-unit>
+      <trans-unit id="shift.account_new" resname="shift.account_new"><source>shift.account_new</source><target>Új felhasználó</target></trans-unit>
+      <trans-unit id="shift.account_edit" resname="shift.account_edit"><source>shift.account_edit</source><target>Felhasználó szerkesztése</target></trans-unit>
+      <trans-unit id="shift.account_require_password" resname="shift.account_require_password"><source>shift.account_require_password</source><target>Új jelszó kérése a következő belépéskor</target></trans-unit>
+      <trans-unit id="shift.account_private_help" resname="shift.account_private_help"><source>shift.account_private_help</source><target>Minden felhasználó munkahelyei, órabérei, naptára és keresete külön kezeltek.</target></trans-unit>
+      <trans-unit id="shift.account_edit_help" resname="shift.account_edit_help"><source>shift.account_edit_help</source><target>Üres jelszó esetén a meglévő marad. A fiók kikapcsolása megőrzi az előzményeket. Saját hozzáférésed itt nem kapcsolható ki. Saját jelszavadat a Profil oldalon módosíthatod.</target></trans-unit>
+      <trans-unit id="shift.account_2fa" resname="shift.account_2fa"><source>shift.account_2fa</source><target>Kétlépcsős azonosítás</target></trans-unit>
+      <trans-unit id="shift.account_secret" resname="shift.account_secret"><source>shift.account_secret</source><target>Kézi beállítási kulcs</target></trans-unit>
+      <trans-unit id="shift.account_recovery" resname="shift.account_recovery"><source>shift.account_recovery</source><target>Elfelejtett jelszó esetén kérd az adminisztrátor segítségét.</target></trans-unit>
+      <trans-unit id="shift.account_role" resname="shift.account_role"><source>shift.account_role</source><target>Szerepkör</target></trans-unit>
+      <trans-unit id="shift.account_new_help" resname="shift.account_new_help"><source>shift.account_new_help</source><target>Adj meg kezdő jelszót, és oszd meg bizalmasan a felhasználóval. Az új fiók üres, saját adatokkal indul.</target></trans-unit>
+      <trans-unit id="shift.account_login" resname="shift.account_login"><source>shift.account_login</source><target>Bejelentkezés</target></trans-unit>
+      <trans-unit id="shift.account_saved" resname="shift.account_saved"><source>shift.account_saved</source><target>A fiók adatai mentve.</target></trans-unit>
     </body>
   </file>
 </xliff>

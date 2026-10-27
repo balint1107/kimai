@@ -36,7 +36,7 @@ class ShiftCalendarControllerTest extends TestCase
         $csrf->method('isTokenValid')->willReturn(false);
         $container = new Container();
         $container->set('security.csrf.token_manager', $csrf);
-        $controller = new ShiftCalendarController($em, (new \ReflectionClass(GoogleClient::class))->newInstanceWithoutConstructor(), (new \ReflectionClass(CalendarSync::class))->newInstanceWithoutConstructor(), (new \ReflectionClass(ShiftService::class))->newInstanceWithoutConstructor(), (new \ReflectionClass(LocalCalendar::class))->newInstanceWithoutConstructor(), new EventMapper(), (new \ReflectionClass(\App\ShiftAccounting\CalendarSync\CalendarProvisioner::class))->newInstanceWithoutConstructor());
+        $controller = new ShiftCalendarController($em, (new \ReflectionClass(GoogleClient::class))->newInstanceWithoutConstructor(), (new \ReflectionClass(CalendarSync::class))->newInstanceWithoutConstructor(), (new \ReflectionClass(ShiftService::class))->newInstanceWithoutConstructor(), (new \ReflectionClass(LocalCalendar::class))->newInstanceWithoutConstructor(), new EventMapper(), (new \ReflectionClass(\App\ShiftAccounting\CalendarSync\CalendarProvisioner::class))->newInstanceWithoutConstructor(), new \App\ShiftAccounting\CalendarSync\CalendarOwnership($em));
         $controller->setContainer($container);
         $request = Request::create('/shifts/google/' . $action, 'POST');
         $this->expectException(AccessDeniedException::class);

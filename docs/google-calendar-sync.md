@@ -242,3 +242,24 @@ Live acceptance verified both separators, zero rates, native rate changes, whole
 partial-day holiday routing, ordinary events and unknown-workplace review. All five
 temporary Google events and their native records were removed; original records were
 unchanged. The owned Szabadság calendar is selected and automatic sync is active.
+
+## Private-account boundaries
+
+Workplace recognition, aliases, defaults, review corrections and local event discovery
+use the connection owner's private workplaces/records. Each user connects independently.
+A canonical Google calendar can be reserved by only one application account; reservations
+survive pause/disconnect and calendar deselection so historical links cannot be silently
+reassigned. Selecting another user's reserved calendar fails before event synchronization.
+Administrative transfer requires pausing both connections and explicitly reconciling
+history; there is intentionally no automatic transfer or sharing UI.
+
+The canonical primary-calendar ID identifies the connected Google account using the
+existing calendar-list permission (no new scopes; see [Google CalendarList.get](https://developers.google.com/workspace/calendar/api/v3/reference/calendarList/get)). Reauthorization must match that
+identity, and one Google account cannot be attached to two application accounts.
+Disconnect removes local tokens and stops sync, but preserves identity, policy, links
+and reservations for safe same-account reconnection. Google-side grant revocation remains
+separate. Changing Google accounts requires a deliberately reconciled separate setup.
+Legacy grants bind their identity on the first successful worker run; if already expired
+before binding, recover the original grant deliberately rather than replacing it with
+another account. Disabled application users are skipped, including manual sync guards.
+OAuth remains in Testing as requested; periodic Google reauthorization is still needed.

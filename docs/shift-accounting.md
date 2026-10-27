@@ -1,6 +1,6 @@
 # Shift accounting fork
 
-Based on Kimai 2.71.0. The single-user Hungarian interface uses HUF, Budapest time,
+Based on Kimai 2.71.0. The private-account Hungarian interface uses HUF, Budapest time,
 Monday-first weeks and a calendar editor. Navigate between Calendar, Summary,
 Workplaces and Import review. Workplace defaults apply only when creating a new
 shift or explicitly selecting another workplace; saved hourly rates remain fixed.
@@ -180,3 +180,48 @@ Public auth remains Kimai's own; the fork does not introduce another login mecha
 `app:shifts:import PATH USERNAME [--commit]` supports a private server-side import.
 Without `--commit` it only previews; it also initializes the selected user's Hungarian
 locale and calendar landing page. Optional two-way Google Calendar synchronization is documented in [Google Calendar sync](google-calendar-sync.md). It stays disabled until the server OAuth client and user authorization are configured.
+
+## Private accounts
+
+Each account has private workplaces, default rates/colors/categories, shifts, calendar
+events, reports, exports, workbook batches/reviews and Google connections. Different
+users can use the same workplace name. Changing defaults never updates saved shifts.
+The header shows the signed-in username. **Profile** and **Users** stay inside the
+same frontend, with Calendar/Summary/Workplaces navigation available on every page.
+Administrators use Users → New user, then set username, email, optional display name,
+initial password and activation. Editing supports disabling/re-enabling accounts,
+password reset and a required password change at next login. Empty passwords retain
+the saved password. Public registration remains disabled; supply initial credentials
+privately because this deployment has no SMTP delivery.
+
+Users edit their own display name/email, change passwords and configure two-factor
+authentication without entering the original Kimai frontend. Ordinary password
+changes require the current password; administrator/recovery-mandated changes use
+the existing authenticated native reset state. Native hashing, password policy, CSRF,
+login throttling, session invalidation and TOTP remain in force. Two-factor setup uses
+the native per-user endpoint rendered in the standalone shell; no secret is displayed
+after activation. Initial language/timezone are Hungarian/Europe/Budapest.
+
+Only administrators can list/manage accounts, and native per-user voters still govern
+edits and password changes. Only an actor authorized to assign administrator roles can
+change that checkbox. Self-disable/self-demotion and super-admin role removal are
+blocked. Retained-data accounts have no delete action; disable them to keep history.
+Disabled sessions are rejected and background synchronization skips the owner.
+
+Legacy account/profile/dashboard GET links redirect into the new screens. Legacy POST
+business actions, native business screens and native APIs are denied for all roles.
+Backend administration outside these account screens requires an operator's console;
+the old business frontend is no longer exposed. Each user's accounting screens remain
+owner-scoped even for administrators.
+
+## Standalone frontend
+
+`shifts/document.html.twig` owns the document shell, `shift-shell` loads only shared
+Tabler CSS plus application shell styles, and `shifts` loads the calendar/report
+frontend. No Kimai web loader, original menu, timer toolbar, profile shell or upstream
+app bundles are rendered. Login/unlock/TOTP/recovery/error pages use the same shell.
+The image removes inherited upstream browser bundles and builds only these two entry
+points. The native backend and framework dependencies are retained for authentication,
+calculation, validation and persistence. This is a replacement frontend, not CSS-hidden
+navigation. Account forms use the standard Bootstrap form theme and normal POST/redirect
+handling, without requiring the old JavaScript widgets.

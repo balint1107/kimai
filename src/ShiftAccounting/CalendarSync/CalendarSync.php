@@ -20,15 +20,15 @@ use Doctrine\ORM\EntityManagerInterface;
  */
 final class CalendarSync
 {
-    /** Injects persistence $em, restricted $google transport, native $local adapter and deterministic $mapper. */
-    public function __construct(private EntityManagerInterface $em, private GoogleClient $google, private LocalCalendar $local, private EventMapper $mapper, private \App\ShiftAccounting\ShiftService $shifts)
+    /** Injects persistence $em, restricted $google transport, native $local adapter and deterministic $mapper, owner-scoped $shifts and exclusive calendar $ownership. */
+    public function __construct(private EntityManagerInterface $em, private GoogleClient $google, private LocalCalendar $local, private EventMapper $mapper, private \App\ShiftAccounting\ShiftService $shifts, private CalendarOwnership $ownership)
     {
     }
 
     /** Reconciles $connection under a database advisory lock; $preview fetches/stages changes without local or remote writes. */
     public function run(ShiftCalendarConnection $connection, bool $preview = false): void
     {
-        if ($connection->credentials === null || (!$connection->enabled && !$preview)) {
+        if (!$connection->owner->isEnabled() || $connection->credentials === null || (!$connection->enabled && !$preview)) {
             return;
         }
         $db = $this->em->getConnection();
@@ -38,7 +38,9 @@ final class CalendarSync
             throw new \RuntimeException('Synchronization is already running');
         }
         try {
-            $places = $this->places();
+            $this->google->bindAccount($connection);
+            $this->ownership->claim($connection, $connection->settings['calendars']);
+            $places = $this->places($connection);
             foreach ($connection->settings['calendars'] as $calendar) {
                 $this->pull($connection, $calendar, $preview, $places);
             }
@@ -257,7 +259,7 @@ final class CalendarSync
             }
             $key = $localKey;
         }
-        $value = $this->mapper->reviewed($input, $this->places(), $key === null ? [] : ($records[$key] ?? $link->baseline), $this->calendarRole($link->connection, $link->calendarId));
+        $value = $this->mapper->reviewed($input, $this->places($link->connection), $key === null ? [] : ($records[$key] ?? $link->baseline), $this->calendarRole($link->connection, $link->calendarId));
         if ($key === null) {
             foreach ($records as $record) {
                 if ($record['kind'] === $value['kind'] && $record['begin'] === $value['begin'] && $record['end'] === $value['end'] && ($record['workplace'] ?? null) === ($value['workplace'] ?? null)) {
@@ -300,7 +302,7 @@ final class CalendarSync
                 $link->state = 'deleted';
                 $link->pending = null;
             } else {
-                $value = $this->mapper->incoming($link->remote, $this->places(), $link->connection->settings['aliases'], $link->baseline, $link->connection->settings['plain_events'] ?? false, $this->calendarRole($link->connection, $link->calendarId));
+                $value = $this->mapper->incoming($link->remote, $this->places($link->connection), $link->connection->settings['aliases'], $link->baseline, $link->connection->settings['plain_events'] ?? false, $this->calendarRole($link->connection, $link->calendarId));
                 if ($value === null) {
                     throw new \InvalidArgumentException('Event cannot be recognized; edit it in Google and preview again');
                 }
@@ -330,12 +332,12 @@ final class CalendarSync
         $this->em->flush();
     }
 
-    /** Returns managed workplace defaults for recognition.
+    /** Returns $connection owner's private workplace defaults for recognition.
      * @return list<Place>
      */
-    private function places(): array
+    private function places(ShiftCalendarConnection $connection): array
     {
-        return $this->shifts->workplaces();
+        return $this->shifts->workplaces($connection->owner);
     }
 
     /** Checks normalized $value against the configured inclusive Budapest import/export range.
@@ -489,7 +491,7 @@ final class CalendarSync
     /** Flushes pending operations with ETag checks, explicit whole-day/timed field clearing, stable insert IDs and bounded backoff. */
     private function push(ShiftCalendarConnection $connection): void
     {
-        $places = array_column($this->places(), 'name', 'id');
+        $places = array_column($this->places($connection), 'name', 'id');
         foreach ($this->links($connection) as $link) {
             if (!\in_array($link->calendarId, $connection->settings['calendars'], true) || $link->pending === null || $link->state !== 'linked' || ($link->retryAt !== null && $link->retryAt > new \DateTimeImmutable())) {
                 continue;
@@ -508,7 +510,7 @@ final class CalendarSync
                         }
                     }
                     if (($fresh['etag'] ?? null) !== ($link->remote['etag'] ?? null) || ($fresh['status'] ?? '') === 'cancelled') {
-                        $this->receive($connection, $link->calendarId, $fresh, $this->places());
+                        $this->receive($connection, $link->calendarId, $fresh, $this->places($link->connection));
                         if (!$this->ready($link)) {
                             continue;
                         }
@@ -539,7 +541,7 @@ final class CalendarSync
                             }
                             $link->remote = $fresh;
                             $link->baseline = $value;
-                            $this->receive($connection, $link->calendarId, $fresh, $this->places());
+                            $this->receive($connection, $link->calendarId, $fresh, $this->places($link->connection));
                             $this->em->flush();
                             continue;
                         }

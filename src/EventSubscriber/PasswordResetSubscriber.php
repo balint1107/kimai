@@ -35,6 +35,7 @@ class PasswordResetSubscriber implements EventSubscriberInterface
         ];
     }
 
+    /** Sends required password changes to the standalone form while preserving native authentication/recovery checks for $event. */
     public function onKernelRequest(RequestEvent $event): void
     {
         // ignore sub-requests
@@ -72,18 +73,19 @@ class PasswordResetSubscriber implements EventSubscriberInterface
             return;
         }
 
-        $response = new RedirectResponse($this->urlGenerator->generate('wizard_password'));
+        $response = new RedirectResponse($this->urlGenerator->generate('shift_account_password'));
         $event->setResponse($response);
     }
 
     /**
-     * Routes that must be reachable while a password reset is pending.
+     * Returns whether $route must remain reachable while a password reset is pending.
      */
     public static function isAllowedRoute(string $route): bool
     {
         // TODO 3.0 remove registration routes
         // remembered users are sent from the wizard (requires full authentication) to the login form to unlock their session
-        return $route === 'logout'
+        return $route === 'shift_account_password'
+            || $route === 'logout'
             || $route === 'login'
             || $route === 'security_check'
             || $route === 'user_registration_check_email'

@@ -13,6 +13,7 @@ use App\Entity\Activity;
 use App\Entity\Customer;
 use App\Entity\CustomerMeta;
 use App\Entity\Project;
+use App\Entity\ShiftWorkplace;
 use App\Entity\Timesheet;
 use App\Entity\TimesheetMeta;
 use App\Entity\User;
@@ -30,13 +31,15 @@ final class ShiftService
     {
     }
 
-    /** Returns named managed workplaces and their defaults; legacy missing-value placeholders stay review-only.
+    /** Returns $owner's named managed workplaces and private defaults; legacy missing-value placeholders stay review-only.
+     * @phpstan-impure
      * @return list<array{id:int|null,name:string,rate:float,category:mixed,color:string}>
      */
-    public function workplaces(): array
+    public function workplaces(User $owner): array
     {
         $result = [];
-        foreach ($this->em->getRepository(Customer::class)->findBy([], ['name' => 'ASC']) as $customer) {
+        foreach ($this->em->getRepository(ShiftWorkplace::class)->findBy(['owner' => $owner]) as $workplace) {
+            $customer = $workplace->customer;
             if ($customer->getMetaField('shift_workplace')?->getValue() !== '1' || !$this->knownWorkplace($customer->getName())) {
                 continue;
             }
@@ -48,21 +51,28 @@ final class ShiftService
             ];
         }
 
+        usort($result, static fn ($a, $b) => strnatcasecmp($a['name'], $b['name']));
+
         return $result;
     }
 
-    /** Creates or updates $name with a nonnegative whole-HUF/hour $rate and $category; returns its customer. */
-    public function workplace(string $name, float $rate = 0, string $category = 'EFO', ?string $color = null, ?int $id = null): Customer
+    /** Creates or updates $owner's $name with a nonnegative whole-HUF/hour $rate and $category; returns its customer. */
+    public function workplace(User $owner, string $name, float $rate = 0, string $category = 'EFO', ?string $color = null, ?int $id = null): Customer
     {
         $name = trim($name);
         if (!$this->knownWorkplace($name) || mb_strlen($name) > 150 || !is_finite($rate) || $rate < 0 || floor($rate) !== $rate || !\in_array($category, self::CATEGORIES, true)) {
             throw new \InvalidArgumentException('shift.invalid_workplace');
         }
-        $customer = $id === null ? $this->em->getRepository(Customer::class)->findOneBy(['name' => $name]) : $this->em->find(Customer::class, $id);
-        if ($id !== null && ($customer === null || $customer->getMetaField('shift_workplace')?->getValue() !== '1')) {
+        $repository = $this->em->getRepository(ShiftWorkplace::class);
+        $key = ShiftWorkplace::key($name);
+        $named = $repository->findOneBy(['owner' => $owner, 'nameKey' => $key]);
+        $workplace = $id === null ? $named : $repository->findOneBy(['owner' => $owner, 'customer' => $id]);
+        if (($id !== null && $workplace === null) || ($named !== null && $workplace !== $named)) {
             throw new \InvalidArgumentException('shift.invalid_workplace');
         }
-        $customer ??= new Customer($name);
+        $customer = $workplace->customer ?? new Customer($name);
+        $workplace ??= new ShiftWorkplace($owner, $customer, $key);
+        $workplace->nameKey = $key;
         $customer->setName($name);
         $customer->setCurrency('HUF');
         $customer->setCountry('HU');
@@ -76,6 +86,7 @@ final class ShiftService
             $this->em->persist($meta);
         }
         $this->em->persist($customer);
+        $this->em->persist($workplace);
         $this->em->flush();
         $this->project($customer);
 
@@ -127,7 +138,7 @@ final class ShiftService
         return $date;
     }
 
-    /** Saves known workplace/category $data with a whole-HUF hourly rate; $existing must belong to $owner.
+    /** Saves $owner's known workplace/category $data with a whole-HUF hourly rate; $existing must belong to $owner.
      * @param array<string, mixed> $data
      */
     public function save(User $owner, array $data, ?Timesheet $existing = null): Timesheet
@@ -139,7 +150,7 @@ final class ShiftService
         if (!is_numeric($workplaceId)) {
             throw new \InvalidArgumentException('shift.invalid_workplace');
         }
-        $customer = $this->em->find(Customer::class, (int) $workplaceId);
+        $customer = $this->em->getRepository(ShiftWorkplace::class)->findOneBy(['owner' => $owner, 'customer' => (int) $workplaceId])?->customer;
         if ($customer === null || $customer->getMetaField('shift_workplace')?->getValue() !== '1' || !$this->knownWorkplace($customer->getName())) {
             throw new \InvalidArgumentException('shift.invalid_workplace');
         }
@@ -190,6 +201,7 @@ final class ShiftService
             ->join('t.project', 'p')->join('p.customer', 'c')->join('t.activity', 'a')->leftJoin('t.meta', 'm')
             ->join('c.meta', 'managed', 'WITH', 'managed.name = :managed AND managed.value = :enabled')
             ->setParameter('managed', 'shift_workplace')->setParameter('enabled', '1')
+            ->innerJoin(ShiftWorkplace::class, 'ownership', 'WITH', 'ownership.customer = c AND ownership.owner = :owner')
             ->where('t.user = :owner')->setParameter('owner', $owner)->orderBy('t.begin', 'ASC');
         if ($from !== null) {
             $query->andWhere('t.begin >= :from')->setParameter('from', $from);

@@ -11,6 +11,7 @@ namespace App\Controller;
 
 use App\Entity\ShiftCalendarConnection;
 use App\Entity\ShiftCalendarLink;
+use App\ShiftAccounting\CalendarSync\CalendarOwnership;
 use App\ShiftAccounting\CalendarSync\CalendarProvisioner;
 use App\ShiftAccounting\CalendarSync\CalendarSync;
 use App\ShiftAccounting\CalendarSync\GoogleClient;
@@ -27,8 +28,8 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 #[IsGranted('IS_AUTHENTICATED_FULLY')]
 final class ShiftCalendarController extends AbstractController
 {
-    /** Injects persistence $em, Google transport $google, reconciler $sync and existing workplace/local adapters $shifts/$local plus $mapper for readable comparisons and $provisioner for first-connection calendar setup. */
-    public function __construct(private EntityManagerInterface $em, private GoogleClient $google, private CalendarSync $sync, private ShiftService $shifts, private \App\ShiftAccounting\CalendarSync\LocalCalendar $local, private \App\ShiftAccounting\CalendarSync\EventMapper $mapper, private CalendarProvisioner $provisioner)
+    /** Injects persistence $em, Google transport $google, reconciler $sync and existing workplace/local adapters $shifts/$local plus $mapper for readable comparisons and $provisioner for setup and $ownership for exclusive calendar reservations. */
+    public function __construct(private EntityManagerInterface $em, private GoogleClient $google, private CalendarSync $sync, private ShiftService $shifts, private \App\ShiftAccounting\CalendarSync\LocalCalendar $local, private \App\ShiftAccounting\CalendarSync\EventMapper $mapper, private CalendarProvisioner $provisioner, private CalendarOwnership $ownership)
     {
     }
 
@@ -64,7 +65,7 @@ final class ShiftCalendarController extends AbstractController
         $comparisons = [];
         foreach ($links as $link) {
             try {
-                $incoming = $link->remote === [] || ($link->remote['status'] ?? '') === 'cancelled' ? null : $this->mapper->incoming($link->remote, $this->shifts->workplaces(), $connection->settings['aliases'], $link->baseline, $connection->settings['plain_events'] ?? false, ($connection->settings['holiday_calendar'] ?? '') === '' ? 'mixed' : ($link->calendarId === $connection->settings['holiday_calendar'] ? 'holiday' : 'work'));
+                $incoming = $link->remote === [] || ($link->remote['status'] ?? '') === 'cancelled' ? null : $this->mapper->incoming($link->remote, $this->shifts->workplaces($this->getUser()), $connection->settings['aliases'], $link->baseline, $connection->settings['plain_events'] ?? false, ($connection->settings['holiday_calendar'] ?? '') === '' ? 'mixed' : ($link->calendarId === $connection->settings['holiday_calendar'] ? 'holiday' : 'work'));
             } catch (\Exception) {
                 $incoming = null;
             }
@@ -79,7 +80,7 @@ final class ShiftCalendarController extends AbstractController
             $comparisons[$link->id] = ['remote' => $incoming, 'candidates' => $candidates];
         }
 
-        return $this->render('shifts/google.html.twig', ['page_setup' => new PageSetup('shift.google'), 'tab' => 'google', 'configured' => $this->google->configured(), 'connected' => $connection->credentials !== null, 'enabled' => $connection->enabled, 'settings' => $connection->settings, 'last_success' => $connection->lastSuccess, 'sync_error' => $connection->error, 'calendars' => $calendars, 'aliases' => implode("\n", $aliases), 'links' => $links, 'comparisons' => $comparisons, 'place_names' => array_column($this->shifts->workplaces(), 'name', 'id'), 'local_records' => $localRecords, 'pending_count' => \count(array_filter($links, fn ($l) => $l->pending !== null)), 'review_count' => \count(array_filter($links, fn ($l) => \in_array($l->state, ['review', 'conflict'], true)))]);
+        return $this->render('shifts/google.html.twig', ['page_setup' => new PageSetup('shift.google'), 'tab' => 'google', 'configured' => $this->google->configured(), 'connected' => $connection->credentials !== null, 'enabled' => $connection->enabled, 'settings' => $connection->settings, 'last_success' => $connection->lastSuccess, 'sync_error' => $connection->error, 'calendars' => $calendars, 'aliases' => implode("\n", $aliases), 'links' => $links, 'comparisons' => $comparisons, 'place_names' => array_column($this->shifts->workplaces($this->getUser()), 'name', 'id'), 'local_records' => $localRecords, 'pending_count' => \count(array_filter($links, fn ($l) => $l->pending !== null)), 'review_count' => \count(array_filter($links, fn ($l) => \in_array($l->state, ['review', 'conflict'], true)))]);
     }
 
     /** Shows one owner-scoped review selected by $request, preserving rejected editor fields; no Google or accounting writes occur. */
@@ -100,7 +101,7 @@ final class ShiftCalendarController extends AbstractController
             }
         }
         $records = $this->local->records($this->getUser());
-        $places = $this->shifts->workplaces();
+        $places = $this->shifts->workplaces($this->getUser());
         $value = [];
         $input = [];
         $candidates = [];
@@ -207,6 +208,7 @@ final class ShiftCalendarController extends AbstractController
                     if ($connection->credentials === null || empty($connection->settings['calendars']) || empty($connection->settings['previewed']) || !$request->request->getBoolean('confirm')) {
                         throw new \InvalidArgumentException('Preview and approve the connection first');
                     }
+                    $this->ownership->claim($connection, $connection->settings['calendars']);
                     $connection->enabled = true;
                     break;
                 case 'save':
@@ -250,7 +252,7 @@ final class ShiftCalendarController extends AbstractController
                     if ($dates['to'] < $dates['from'] || (new \DateTimeImmutable($dates['from']))->diff(new \DateTimeImmutable($dates['to']))->days > 3660) {
                         throw new \InvalidArgumentException('Choose a range of at most ten years');
                     }
-                    $names = array_column($this->shifts->workplaces(), 'name');
+                    $names = array_column($this->shifts->workplaces($this->getUser()), 'name');
                     $aliases = [];
                     foreach (preg_split('/\R/', (string) $request->request->get('aliases', '')) ?: [] as $line) {
                         if (trim($line) === '') {
@@ -263,6 +265,7 @@ final class ShiftCalendarController extends AbstractController
                         $aliases[$parts[0]] = $parts[1];
                     }
                     $connection->enabled = false;
+                    $this->ownership->claim($connection, array_values(array_unique($selected)));
                     $connection->settings = ['calendars' => array_values(array_unique($selected)), 'destination' => $destination, 'aliases' => $aliases, 'from' => $dates['from'], 'to' => $dates['to'], 'cursors' => [], 'previewed' => false, 'plain_events' => $request->request->getBoolean('plain_events'), 'holiday_calendar' => $holiday];
                     break;
                 default:

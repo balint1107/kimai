@@ -27,7 +27,7 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
-/** Authenticated single-owner accounting UI; all mutations use the existing session and CSRF tokens. */
+/** Authenticated private-account accounting UI; all mutations use the existing session and CSRF tokens. */
 #[Route(path: '/shifts')]
 #[IsGranted('IS_AUTHENTICATED_FULLY')]
 final class ShiftController extends AbstractController
@@ -57,7 +57,7 @@ final class ShiftController extends AbstractController
             $review = $item->timesheet !== null ? $this->shifts->record($item->timesheet) : $item->payload;
             $review['review_item'] = $item->id;
             if ($item->timesheet === null) {
-                foreach ($this->shifts->workplaces() as $place) {
+                foreach ($this->shifts->workplaces($this->getUser()) as $place) {
                     if ($place['name'] === $item->payload['workplace']) {
                         $review['workplace'] = $place['id'];
                     }
@@ -66,7 +66,7 @@ final class ShiftController extends AbstractController
         }
 
         return $this->render('shifts/index.html.twig', [
-            'page_setup' => new PageSetup('shift.title'), 'places' => $this->shifts->workplaces(),
+            'page_setup' => new PageSetup('shift.title'), 'places' => $this->shifts->workplaces($this->getUser()),
             'tab' => $request->query->get('tab', 'calendar'),
             'review' => $review,
             'batches' => $this->em->getRepository(ShiftImportBatch::class)->findBy(['owner' => $this->getUser()], ['id' => 'DESC']),
@@ -81,7 +81,7 @@ final class ShiftController extends AbstractController
             $records = $this->filtered($request);
             $groups = $this->reports->build($records);
 
-            return $this->json(['events' => array_map($this->shifts->record(...), $records), 'holidays' => $this->timeOff->events($this->getUser()), 'groups' => $groups, 'summary' => ['months' => $this->reports->summary($groups['months']), 'years' => $this->reports->summary($groups['years'])], 'places' => $this->shifts->workplaces()]);
+            return $this->json(['events' => array_map($this->shifts->record(...), $records), 'holidays' => $this->timeOff->events($this->getUser()), 'groups' => $groups, 'summary' => ['months' => $this->reports->summary($groups['months']), 'years' => $this->reports->summary($groups['years'])], 'places' => $this->shifts->workplaces($this->getUser())]);
         } catch (\InvalidArgumentException $e) {
             return $this->error($e);
         }
@@ -165,7 +165,7 @@ final class ShiftController extends AbstractController
         }
     }
 
-    /** Saves workplace defaults from JSON $request without changing existing shift rates. */
+    /** Saves the current owner's workplace defaults from JSON $request without changing existing shift rates. */
     #[Route(path: '/workplace', name: 'shift_workplace', methods: ['POST'])]
     public function workplace(Request $request): JsonResponse
     {
@@ -175,9 +175,9 @@ final class ShiftController extends AbstractController
             if (!is_numeric($data['rate'] ?? null)) {
                 throw new \InvalidArgumentException('shift.invalid_rate');
             }
-            $this->shifts->workplace((string) ($data['name'] ?? ''), (float) $data['rate'], (string) ($data['category'] ?? 'EFO'), (string) ($data['color'] ?? ''), empty($data['id']) ? null : (int) $data['id']);
+            $this->shifts->workplace($this->getUser(), (string) ($data['name'] ?? ''), (float) $data['rate'], (string) ($data['category'] ?? 'EFO'), (string) ($data['color'] ?? ''), empty($data['id']) ? null : (int) $data['id']);
 
-            return $this->json($this->shifts->workplaces());
+            return $this->json($this->shifts->workplaces($this->getUser()));
         } catch (\InvalidArgumentException $e) {
             return $this->error($e);
         }

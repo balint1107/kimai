@@ -86,7 +86,7 @@ class PasswordResetSubscriberTest extends TestCase
         yield ['/register/confirm/abc', 'registration_confirm'];
         yield ['/register/confirmed', 'registration_confirmed'];
         yield ['/wizard/intro', 'wizard_intro'];
-        yield ['/en/wizard/password', 'wizard_password'];
+        yield ['/en/wizard/password', 'shift_account_password'];
         yield ['/logout', 'logout'];
         yield ['/en/login', 'login'];
         yield ['/en/login_check', 'security_check'];
@@ -190,7 +190,7 @@ class PasswordResetSubscriberTest extends TestCase
         $urlGenerator
             ->expects($this->once())
             ->method('generate')
-            ->with('wizard_password')
+            ->with('shift_account_password')
             ->willReturn('/wizard/password');
 
         $security = $this->createMock(AuthorizationCheckerInterface::class);
@@ -221,7 +221,7 @@ class PasswordResetSubscriberTest extends TestCase
         $token = $this->createUserToken($user);
 
         $urlGenerator = $this->createMock(UrlGeneratorInterface::class);
-        $urlGenerator->expects($this->once())->method('generate')->with('wizard_password')->willReturn('/wizard/password');
+        $urlGenerator->expects($this->once())->method('generate')->with('shift_account_password')->willReturn('/wizard/password');
 
         $security = $this->createMock(AuthorizationCheckerInterface::class);
         $security
@@ -271,7 +271,7 @@ class PasswordResetSubscriberTest extends TestCase
         $token = $this->createUserToken($user);
 
         $urlGenerator = $this->createMock(UrlGeneratorInterface::class);
-        $urlGenerator->expects($this->once())->method('generate')->with('wizard_password')->willReturn('/en/wizard/password');
+        $urlGenerator->expects($this->once())->method('generate')->with('shift_account_password')->willReturn('/en/wizard/password');
 
         $security = $this->createMock(AuthorizationCheckerInterface::class);
         $security->expects($this->once())->method('isGranted')->with('IS_AUTHENTICATED_REMEMBERED')->willReturn(true);
@@ -298,7 +298,7 @@ class PasswordResetSubscriberTest extends TestCase
         yield ['login', true];
         yield ['security_check', true];
         yield ['wizard_next', true];
-        yield ['wizard_password', true];
+        yield ['shift_account_password', true];
         yield ['wizard_intro', true];
         yield ['registration_register', true];
         yield ['registration_confirm', true];

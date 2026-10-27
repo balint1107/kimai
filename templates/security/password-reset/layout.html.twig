@@ -1,4 +1,2 @@
-{% extends '@theme/security/password_reset.html.twig' %}
-
-{% block logo_login %}{% include 'partials/logo_login.html.twig' %}{% endblock %}
-{% block title %}{{- get_title() -}}{% endblock %}
+{% extends 'shifts/auth.html.twig' %}
+{% block authentication %}<h2>{{ 'password'|trans }}</h2>{% block login_form %}<p>{{ 'shift.account_recovery'|trans }}</p><a class="btn" href="{{ path('login') }}">{{ 'shift.account_login'|trans }}</a>{% endblock %}{% endblock %}

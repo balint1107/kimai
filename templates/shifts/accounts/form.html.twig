@@ -1,0 +1,15 @@
+{% extends 'shifts/layout.html.twig' %}
+{% form_theme form 'bootstrap_5_layout.html.twig' %}
+{% block accounting %}
+<div class="d-flex flex-wrap gap-2 mb-3">
+<a class="btn" href="{{ path('shift_calendar') }}">{{ 'shift.calendar'|trans }}</a>
+{% if manage %}<a class="btn" href="{{ path('shift_users') }}">{{ 'users'|trans }}</a>{% else %}
+<a class="btn" href="{{ path('shift_account') }}">{{ 'profile.title'|trans }}</a>
+{% if is_granted('password', app.user) %}<a class="btn" href="{{ path('shift_account_password') }}">{{ 'password'|trans }}</a>{% endif %}
+<a class="btn" href="{{ path('user_profile_2fa', {username:app.user.userIdentifier}) }}">{{ 'shift.account_2fa'|trans }}</a>
+{% endif %}</div>
+<div class="card shift-account-card"><div class="card-body"><h2>{{ title|trans }}</h2>
+{% if manage %}<p class="text-muted">{{ (account.id ? 'shift.account_edit_help' : 'shift.account_new_help')|trans }}</p>{% endif %}
+{{ form_start(form) }}{{ form_widget(form) }}<button class="btn btn-primary" type="submit">{{ 'shift.save'|trans }}</button>{{ form_end(form) }}
+</div></div>
+{% endblock %}

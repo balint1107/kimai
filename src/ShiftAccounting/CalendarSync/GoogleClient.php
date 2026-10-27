@@ -53,14 +53,48 @@ final class GoogleClient
         return 'https://accounts.google.com/o/oauth2/v2/auth?' . http_build_query(['client_id' => $this->clientId, 'redirect_uri' => $callback, 'response_type' => 'code', 'scope' => self::SCOPES, 'access_type' => 'offline', 'prompt' => 'consent', 'state' => $state, 'code_challenge' => $challenge, 'code_challenge_method' => 'S256']);
     }
 
-    /** Exchanges one-use $code/$verifier for $connection at exact $callback, saving authenticated encrypted credentials with explicit calendar-creation consent. */
+    /** Exchanges one-use $code/$verifier for $connection at exact $callback, saving encrypted credentials only when the Google account matches the existing binding. */
     public function authorize(ShiftCalendarConnection $connection, string $code, string $verifier, string $callback): void
     {
+        $expected = $connection->accountId;
+        if ($expected === null && $connection->credentials !== null) {
+            $expected = $this->bindAccount($connection);
+        }
         $tokens = $this->token(['grant_type' => 'authorization_code', 'code' => $code, 'code_verifier' => $verifier, 'redirect_uri' => $callback]);
         if (empty($tokens['refresh_token'])) {
             throw new \RuntimeException('Google did not issue offline access; reconnect and approve all requested calendar permissions');
         }
+        $response = $this->http->request('GET', 'https://www.googleapis.com/calendar/v3/users/me/calendarList/primary', ['auth_bearer' => $tokens['access_token'], 'timeout' => 30, 'max_redirects' => 0])->toArray();
+        $identity = $response['id'] ?? null;
+        if (!\is_string($identity) || $identity === '' || ($expected !== null && $expected !== $identity)) {
+            throw new \RuntimeException('Reconnect the same Google account; account changes require a separate setup');
+        }
+        $other = $this->em->getRepository(ShiftCalendarConnection::class)->findOneBy(['accountId' => $identity]);
+        if ($other !== null && $other->id !== $connection->id) {
+            throw new \RuntimeException('Google account is connected to another application account');
+        }
+        $connection->accountId = $identity;
         $this->saveTokens($connection, $tokens);
+    }
+
+    /** Binds a legacy $connection using its current grant; returns canonical Google primary-calendar ID without new scopes. */
+    public function bindAccount(ShiftCalendarConnection $connection): string
+    {
+        if ($connection->accountId === null) {
+            $page = $this->request($connection, 'GET', 'users/me/calendarList/primary');
+            $identity = $page['id'] ?? null;
+            if (!\is_string($identity) || $identity === '') {
+                throw new \RuntimeException('Unable to identify connected Google account');
+            }
+            $other = $this->em->getRepository(ShiftCalendarConnection::class)->findOneBy(['accountId' => $identity]);
+            if ($other !== null && $other->id !== $connection->id) {
+                throw new \RuntimeException('Google account is connected to another application account');
+            }
+            $connection->accountId = $identity;
+            $this->em->flush();
+        }
+
+        return $connection->accountId;
     }
 
     /** Calls a fixed Calendar API $path for $connection, with optional $body/$query and conditional $etag; HTTP failures carry only numeric status.

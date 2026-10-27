@@ -39,7 +39,7 @@ class CalendarProvisionerTest extends TestCase
         $connection->id = 1;
         $connection->credentials = $google->encrypt(['access_token' => 'fake', 'expires_at' => time() + 3600]);
 
-        return [new CalendarProvisioner($google, $em, new EventMapper()), $connection, $http];
+        return [new CalendarProvisioner($google, $em, new EventMapper(), new \App\ShiftAccounting\CalendarSync\CalendarOwnership($em)), $connection, $http];
     }
 
     /** Creates each Budapest secondary calendar once, selects destinations and requires preview before event sync. */

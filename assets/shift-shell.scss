@@ -1,0 +1,7 @@
+body { background: #f6f8fb; color: #182433; }
+.shift-shell { width: 100%; max-width: 1564px; margin: 0 auto; padding: 24px 32px; }
+.shift-auth { max-width: 440px; margin: 8vh auto; }
+.shift-account-card { max-width: 720px; }
+.shift-account-table th, .shift-account-table td { vertical-align: middle; }
+.shift-account-table .shift-account-identity { white-space: normal; overflow-wrap: anywhere; }
+@media (max-width: 767px) { .shift-shell { padding: 16px 12px; } .shift-auth { margin-top: 24px; } }

@@ -66,3 +66,7 @@ deploy/source.tar.gz
 
 # Host-side database snapshot tests
 /deploy/__pycache__/
+
+# Private browser verification artifacts; never include in the public source archive.
+.playwright-cli/
+output/playwright/

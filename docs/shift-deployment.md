@@ -123,3 +123,84 @@ See [setup and recovery](google-calendar-sync.md) for private OAuth credentials,
 the encryption key, additive migration and one-minute host timer. The application
 continues working without these settings; no calendar access occurs until authorized.
 Pause synchronization before restoring a database or changing the Google account.
+
+## Private-account upgrade
+
+Migration `Version20261027150006` adds `shift_workplace`, `shift_calendar_claim` and a
+nullable unique Google account identity. It preserves native customer/project/timesheet
+IDs, explicit shift rates, import provenance and calendar links. Workplaces with one
+historical timesheet owner are assigned to that owner; unreferenced workplaces use the
+single unambiguous legacy owner. Ambiguous ownership, duplicate normalized names or
+cross-account Google calendars abort before DDL. Resolve such cases explicitly; never
+assign arbitrary owners. New installations with no workplaces need no backfill.
+
+Before deploying, pause the sync timer and stop application writes, retain the previous
+image, and create a private full database dump. Apply the migration and compare native
+record counts, hours/earnings/rates and calendar-link counts. Resume the worker after
+verification; the first successful run binds the existing Google account without
+creating events solely because of this upgrade. Daily snapshots now cover all users;
+restore into a disposable database before production recovery. A pre-upgrade database
+backup is required when returning to the single-user image. Never run that old image
+against a database containing multiple private accounts.
+
+Account provisioning uses the integrated `/shifts/account/users` screen and native
+user services; the upstream browser administration is no longer exposed. Existing password hashing, login throttling, CSRF, sessions and 2FA
+remain in force. Account disable rejects sessions and skips synchronization; workplace
+ownership plus a native deletion voter prevents hard deletion/transfer of a populated
+private account before native deletion can mutate its history. The server operator
+retains console access; application administrators use the integrated account screens. Private-account HTTP
+restrictions are a fork feature, not upstream Kimai's general team-sharing model.
+
+Legacy Docker builders do not honor `deploy/Dockerfile.dockerignore`. Build from an
+isolated source staging directory with that file copied to its root `.dockerignore`;
+never replace the repository's upstream ignore file or include private environment
+files. Modern BuildKit uses the Dockerfile-specific ignore file directly.
+
+Private-account preflight: 107 focused tests (448 assertions), 3,708 broader unit
+tests (four skipped), core/test PHPStan, code style, container/Twig/YAML/mapping
+validation passed. Restore plus migration down/up preserved all 784 legacy timesheets,
+accounting sums, saved hourly rates and 36 Google links; 11 workplaces received
+explicit owners. The generated migration excludes unrelated upstream schema drift.
+
+Browser snapshots/state are ignored under `.playwright-cli/` and `output/playwright/`
+and excluded by the public-source packager's standard Git ignore rules. Keep any
+verification credentials outside the repository and remove temporary test accounts.
+
+## Standalone account frontend upgrade
+
+This code-only upgrade needs no database migration. Retain the current image and take
+a private backup before replacement. The frontend build now has only `shift-shell`
+and `shifts` entries; the image removes inherited `public/build`/`public/bundles`
+artifacts before copying the new build. Never publish old entrypoints alongside the
+new shell. Calendar/report assets and all prefix-aware URLs are retained.
+
+Check login/logout, account list/create/edit/disable, mandatory and ordinary password
+changes, own TOTP setup, legacy GET redirects, native business/API denial for both
+ordinary/admin users, and a return to Calendar from every account screen. Calendar
+creation/editing and Google settings/review must still work without the original
+web loader. Application code remains unchanged by frontend-only browser artifacts.
+
+Standalone preflight passed 189 focused tests (779 assertions), 3,714 broader unit
+tests (four skipped), core/test PHPStan, code style, container/Twig/XLIFF validation
+and the reduced frontend lint/build. Account acceptance covers real routed creation,
+weak-password rejection, disable/re-enable, forced reset, old-password enforcement,
+2FA setup rendering, legacy redirects and native frontend denial. Existing ownership
+and two-way sync tests remain included. Browser acceptance uses the public prefix.
+
+## Authorized identity handover
+
+For a split between a data owner and a separate empty administrator, retain the
+existing owner's user ID and rename its identity rather than rewriting accounting
+foreign keys. Create the new administrator with a fresh ID and no workplaces,
+records, imports or calendar connection. Demote the data owner to ordinary User.
+An explicitly authorized compatible password-hash copy is a one-time credential
+migration, not continuing password synchronization or single sign-on.
+
+Rehearse against a disposable restored database, back up before the live transaction,
+pause the worker and stop web writes, validate identities and uniqueness through the
+native user model, and verify every accounting/import/sync table fingerprint plus
+owner-scoped counts. Expire sessions, remember-me signatures and legacy API access.
+Transfer an existing Google grant only with explicit approval when its Google identity
+differs from the new application account. Keep imported hashes/environment payloads
+private, delete temporary files/databases afterward, and confirm the new administrator
+can manage accounts while its accounting data is empty. Resume and verify sync.

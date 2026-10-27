@@ -6,16 +6,8 @@ Encore
     .setManifestKeyPrefix('build/')
     .cleanupOutputBeforeBuild()
 
-    .addEntry('app', './assets/app.js')
-    .addEntry('app-rtl', './assets/app-rtl.js')
-    .addEntry('export-pdf', './assets/export-pdf.js')
-    .addEntry('invoice', './assets/invoice.js')
-    .addEntry('invoice-pdf', './assets/invoice-pdf.js')
-    .addEntry('chart', './assets/chart.js')
-    .addEntry('calendar', './assets/calendar.js')
+    .addEntry('shift-shell', './assets/shift-shell.js')
     .addEntry('shifts', './assets/shifts.js')
-    .addEntry('dashboard', './assets/dashboard.js')
-    .addEntry('highlight', './assets/highlight.js')
 
     .splitEntryChunks()
     .configureSplitChunks((splitChunks) => {

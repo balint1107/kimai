@@ -1,7 +1,7 @@
 ## Hungarian shift-accounting fork
 
 This fork adds a calendar-first Hungarian shift/earnings interface, EFO/Számla
-categories, workplace defaults, monthly/yearly reports, private workbook migration
+categories, a standalone frontend with integrated private user accounts/workplace defaults, monthly/yearly reports, private workbook migration
 and XLSX/CSV exports. It is based on Kimai 2.71.0 and supports `/kimai/` deployment.
 See [usage and import](docs/shift-accounting.md) and [deployment and restore](docs/shift-deployment.md).
 Workbooks, credentials, database dumps and private verification reports are excluded

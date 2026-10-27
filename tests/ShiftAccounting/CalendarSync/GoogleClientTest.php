@@ -84,13 +84,50 @@ class GoogleClientTest extends TestCase
     /** Approved three-scope consent is encrypted and includes the secondary-calendar creation grant. */
     public function testNewConsentStoresCreationScope(): void
     {
-        $http = new MockHttpClient([new MockResponse(json_encode(['access_token' => 'fresh', 'refresh_token' => 'refresh', 'scope' => GoogleClient::SCOPES], JSON_THROW_ON_ERROR))]);
-        $client = new GoogleClient($http, $this->createMock(EntityManagerInterface::class), 'client', 'secret', base64_encode(str_repeat('k', 32)));
+        $http = new MockHttpClient([new MockResponse(json_encode(['access_token' => 'fresh', 'refresh_token' => 'refresh', 'scope' => GoogleClient::SCOPES], JSON_THROW_ON_ERROR)), new MockResponse('{"id":"owner@example.test"}')]);
+        $em = $this->createMock(EntityManagerInterface::class);
+        $em->method('getRepository')->willReturn($this->createMock(\Doctrine\ORM\EntityRepository::class));
+        $client = new GoogleClient($http, $em, 'client', 'secret', base64_encode(str_repeat('k', 32)));
         $connection = new ShiftCalendarConnection(new User());
         $client->authorize($connection, 'code', 'verifier', 'https://example.com/callback');
         self::assertNotNull($connection->credentials);
         self::assertSame(GoogleClient::SCOPES, $client->decrypt($connection->credentials)['scope']);
         self::assertStringContainsString('calendar.app.created', $client->authorizationUrl('state', 'challenge', 'https://example.com/callback'));
+    }
+
+    /** Legacy grants bind their canonical primary identity once using existing permissions. */
+    public function testLegacyAccountBinding(): void
+    {
+        $http = new MockHttpClient([new MockResponse('{"id":"owner@example.test"}')]);
+        $em = $this->createMock(EntityManagerInterface::class);
+        $em->method('getRepository')->willReturn($this->createMock(\Doctrine\ORM\EntityRepository::class));
+        $em->expects(self::once())->method('flush');
+        $client = new GoogleClient($http, $em, 'client', 'secret', base64_encode(str_repeat('k', 32)));
+        $connection = new ShiftCalendarConnection(new User());
+        $connection->credentials = $client->encrypt(['access_token' => 'legacy', 'expires_at' => time() + 3600]);
+        self::assertSame('owner@example.test', $client->bindAccount($connection));
+        self::assertSame('owner@example.test', $client->bindAccount($connection));
+        self::assertSame(1, $http->getRequestsCount());
+    }
+
+    /** Different-account consent must not replace the old grant or retained sync identity. */
+    public function testAccountSwitchRejected(): void
+    {
+        $http = new MockHttpClient([new MockResponse(json_encode(['access_token' => 'fresh', 'refresh_token' => 'refresh', 'scope' => GoogleClient::SCOPES], JSON_THROW_ON_ERROR)), new MockResponse('{"id":"other@example.test"}')]);
+        $em = $this->createMock(EntityManagerInterface::class);
+        $em->expects(self::never())->method('flush');
+        $client = new GoogleClient($http, $em, 'client', 'secret', base64_encode(str_repeat('k', 32)));
+        $connection = new ShiftCalendarConnection(new User());
+        $connection->accountId = 'owner@example.test';
+        $connection->credentials = $client->encrypt(['refresh_token' => 'original']);
+        $original = $connection->credentials;
+        try {
+            $client->authorize($connection, 'code', 'verifier', 'https://example.com/callback');
+            self::fail('Different Google account was accepted');
+        } catch (\RuntimeException) {
+            self::assertSame($original, $connection->credentials);
+            self::assertSame('owner@example.test', $connection->accountId);
+        }
     }
 
     /** Missing server configuration disables authorization without affecting the rest of Kimai. */

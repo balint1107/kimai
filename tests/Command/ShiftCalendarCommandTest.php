@@ -34,4 +34,20 @@ class ShiftCalendarCommandTest extends TestCase
         self::assertSame(0, $tester->execute([]));
         self::assertNull($tokens->getToken());
     }
+
+    /** Disabled owners never receive a security token or invoke the reconciler even when their connection was enabled. */
+    public function testDisabledOwnerIsSkipped(): void
+    {
+        $connection = new ShiftCalendarConnection(new \App\Entity\User());
+        $connection->enabled = true;
+        $repository = $this->createMock(EntityRepository::class);
+        $repository->method('findBy')->willReturn([$connection]);
+        $em = $this->createMock(EntityManagerInterface::class);
+        $em->method('getRepository')->willReturn($repository);
+        $sync = (new \ReflectionClass(CalendarSync::class))->newInstanceWithoutConstructor();
+        $tokens = new TokenStorage();
+        $tester = new CommandTester(new ShiftCalendarCommand($em, $sync, $tokens));
+        self::assertSame(0, $tester->execute([]));
+        self::assertNull($tokens->getToken());
+    }
 }

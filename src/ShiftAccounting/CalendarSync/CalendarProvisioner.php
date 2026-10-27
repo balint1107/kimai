@@ -17,8 +17,8 @@ use Doctrine\ORM\EntityManagerInterface;
  */
 final class CalendarProvisioner
 {
-    /** Uses $google for owner-authorized HTTPS, $em for durable checkpoints/serialization and $mapper for accent-insensitive names. */
-    public function __construct(private GoogleClient $google, private EntityManagerInterface $em, private EventMapper $mapper)
+    /** Uses $google for owner-authorized HTTPS, $em for durable checkpoints/serialization $mapper for accent-insensitive names and $ownership for exclusive reservations. */
+    public function __construct(private GoogleClient $google, private EntityManagerInterface $em, private EventMapper $mapper, private CalendarOwnership $ownership)
     {
     }
 
@@ -59,6 +59,7 @@ final class CalendarProvisioner
             if ($work === $holiday) {
                 throw new \RuntimeException('Choose separate shift and holiday calendars');
             }
+            $this->ownership->claim($connection, [$work, $holiday]);
             $connection->settings = array_replace($connection->settings, ['calendars' => [$work, $holiday], 'destination' => $work, 'holiday_calendar' => $holiday, 'plain_events' => true, 'cursors' => [], 'previewed' => false]);
             unset($connection->settings['setup_calendars'], $connection->settings['pending_calendar_creation']);
             $connection->enabled = false;

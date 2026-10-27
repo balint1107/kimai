@@ -65,7 +65,7 @@ class CalendarSyncTest extends TestCase
         $db->setNestTransactionsWithSavepoints(true);
         $db->beginTransaction();
         try {
-            $owner = new User();
+            $owner = (new User())->setEnabled(true);
             $owner->setUsername('calendar-test-' . bin2hex(random_bytes(4)));
             $owner->setEmail($owner->getUsername() . '@example.test');
             $owner->setPassword('test-only-not-a-login');
@@ -74,7 +74,7 @@ class CalendarSyncTest extends TestCase
             $em->persist($owner);
             $em->flush();
             $tokens->setToken(new UsernamePasswordToken($owner, 'secured_area', $owner->getRoles()));
-            $place = $shifts->workplace('Calendar integration fixture', 3500, 'EFO');
+            $place = $shifts->workplace($owner, 'Calendar integration fixture', 3500, 'EFO');
             /** @var array<string, GoogleEvent> $remote */
             $remote = ['phone1' => ['id' => 'phone1', 'etag' => 'v1', 'summary' => 'Calendar integration fixture EFO', 'description' => 'Phone note', 'start' => ['dateTime' => '2027-02-03T08:00:00+01:00'], 'end' => ['dateTime' => '2027-02-03T10:00:00+01:00']]];
             /** @var array<string, list<GoogleEvent>> $instances */
@@ -87,7 +87,7 @@ class CalendarSyncTest extends TestCase
             $http = new MockHttpClient(function ($method, $url, $options) use (&$remote, &$writes, &$instances, $faults, &$calendarIds): MockResponse {
                 $path = (string) parse_url($url, PHP_URL_PATH);
                 preg_match('~/calendars/([^/]+)/~', $path, $calendarMatch);
-                $calendar = rawurldecode($calendarMatch[1] ?? 'primary');
+                $calendar = rawurldecode($calendarMatch[1] ?? 'owner@example.test');
                 if ($method === 'GET' && str_ends_with($path, '/instances')) {
                     return new MockResponse(json_encode(['items' => $instances[basename(\dirname($path))] ?? []], JSON_THROW_ON_ERROR));
                 }
@@ -98,7 +98,7 @@ class CalendarSyncTest extends TestCase
                         return new MockResponse('{}', ['http_code' => 410]);
                     }
 
-                    return new MockResponse(json_encode(['items' => array_values(array_filter($remote, fn ($event) => ($calendarIds[$event['id'] ?? ''] ?? 'primary') === $calendar)), 'nextSyncToken' => 'next'], JSON_THROW_ON_ERROR));
+                    return new MockResponse(json_encode(['items' => array_values(array_filter($remote, fn ($event) => ($calendarIds[$event['id'] ?? ''] ?? 'owner@example.test') === $calendar)), 'nextSyncToken' => 'next'], JSON_THROW_ON_ERROR));
                 }
                 $id = basename($path);
                 if ($method === 'GET') {
@@ -134,9 +134,10 @@ class CalendarSyncTest extends TestCase
                 return new MockResponse(json_encode($remote[$id], JSON_THROW_ON_ERROR));
             });
             $google = new GoogleClient($http, $em, 'client', 'secret', base64_encode(str_repeat('k', 32)));
-            $sync = new CalendarSync($em, $google, $local, new EventMapper(), $shifts);
+            $sync = new CalendarSync($em, $google, $local, new EventMapper(), $shifts, new \App\ShiftAccounting\CalendarSync\CalendarOwnership($em));
             $connection = new ShiftCalendarConnection($owner);
-            $connection->settings = ['calendars' => ['primary'], 'destination' => 'primary', 'from' => '2027-01-01', 'to' => '2027-12-31', 'aliases' => [], 'cursors' => []];
+            $connection->accountId = 'calendar-fixture@example.test';
+            $connection->settings = ['calendars' => ['owner@example.test'], 'destination' => 'owner@example.test', 'from' => '2027-01-01', 'to' => '2027-12-31', 'aliases' => [], 'cursors' => []];
             $connection->credentials = $google->encrypt(['access_token' => 'fake', 'expires_at' => time() + 3600]);
             $em->persist($connection);
             $em->flush();
@@ -159,7 +160,7 @@ class CalendarSyncTest extends TestCase
             self::assertSame('4200', $remote['phone1']['extendedProperties']['private']['kimai_rate'] ?? null);
             self::assertSame(4200, $local->records($owner)[$link->localKey]['rate'] ?? null);
             // Independent edits merge, retaining a saved rate despite changed workplace defaults.
-            $shifts->workplace($place->getName() ?? '', 9999, 'EFO', null, $place->getId());
+            $shifts->workplace($owner, $place->getName() ?? '', 9999, 'EFO', null, $place->getId());
             $remote['phone1']['description'] = str_replace('Phone note', 'Edited on phone', ($remote['phone1']['description'] ?? ''));
             $remote['phone1']['etag'] = 'phone-edit';
             $sync->run($connection);
@@ -244,7 +245,7 @@ class CalendarSyncTest extends TestCase
             // Google may retain recurrence fields on a cancelled master: it must not remain in the polling set.
             $remote['series']['status'] = 'cancelled';
             $sync->run($connection);
-            self::assertArrayNotHasKey('series', $connection->settings['masters']['primary'] ?? []);
+            self::assertArrayNotHasKey('series', $connection->settings['masters']['owner@example.test'] ?? []);
             // New Kimai holidays use their separate destination, and arbitrary titles there never create paid shifts.
             $connection->settings['calendars'][] = 'holidays';
             $connection->settings['holiday_calendar'] = 'holidays';
@@ -264,7 +265,7 @@ class CalendarSyncTest extends TestCase
             self::assertCount($paidBefore, array_filter($local->records($owner), fn ($record) => $record['kind'] === 'shift'));
             // Invalid incoming data is repaired locally, remains queued while paused, and survives the next pull.
             $remote['repair'] = ['id' => 'repair', 'etag' => 'repair-1', 'summary' => 'Unknown workplace', 'description' => 'EFO, 4500', 'start' => ['dateTime' => '2027-08-01T08:00:00+02:00'], 'end' => ['dateTime' => '2027-08-01T10:00:00+02:00']];
-            $calendarIds['repair'] = 'primary';
+            $calendarIds['repair'] = 'owner@example.test';
             $sync->run($connection);
             $repair = $em->getRepository(ShiftCalendarLink::class)->findOneBy(['connection' => $connection, 'eventId' => 'repair']);
             self::assertNotNull($repair);

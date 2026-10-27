@@ -1,0 +1,9 @@
+{% extends 'shifts/layout.html.twig' %}
+{% block accounting %}
+<div class="d-flex align-items-center justify-content-between gap-2 mb-3"><h2 class="mb-0">{{ 'users'|trans }}</h2>{% if is_granted('create_user') %}<a class="btn btn-primary" href="{{ path('shift_user_create') }}">{{ 'shift.account_new'|trans }}</a>{% endif %}</div>
+<p class="text-muted">{{ 'shift.account_private_help'|trans }}</p>
+<div class="card"><div class="table-responsive"><table class="table table-vcenter shift-account-table mb-0">
+<thead><tr><th>{{ 'username'|trans }}</th><th>{{ 'email'|trans }}</th><th>{{ 'shift.account_role'|trans }}</th><th>{{ 'active'|trans }}</th><th></th></tr></thead>
+<tbody>{% for user in users %}<tr><td class="shift-account-identity"><strong>{{ user.userIdentifier }}</strong>{% if user.alias %}<div class="text-muted">{{ user.alias }}</div>{% endif %}</td><td class="shift-account-identity">{{ user.email }}</td><td>{{ (user.isAdmin(false) ? 'shift.account_admin' : 'shift.account_user')|trans }}</td><td><span class="badge {{ user.enabled ? 'bg-success-lt' : 'bg-secondary-lt' }}">{{ (user.enabled ? 'active' : 'deactivated')|trans }}</span></td><td>{% if is_granted('edit', user) %}<a class="btn btn-sm" href="{{ path('shift_user_edit', {id:user.id}) }}">{{ 'edit'|trans }}</a>{% endif %}</td></tr>{% endfor %}</tbody>
+</table></div></div>
+{% endblock %}
