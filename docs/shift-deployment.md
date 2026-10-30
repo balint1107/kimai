@@ -204,3 +204,30 @@ Transfer an existing Google grant only with explicit approval when its Google id
 differs from the new application account. Keep imported hashes/environment payloads
 private, delete temporary files/databases afterward, and confirm the new administrator
 can manage accounts while its accounting data is empty. Resume and verify sync.
+
+## Optional central Authelia login
+
+`AutheliaAuthenticator` is enabled only by `MONITOR_SSO_ENABLED=1`. It verifies the
+private proxy secret and resolves the Authelia username through `MONITOR_SSO_USERS`
+(JSON mapping to existing numeric Kimai IDs). Unknown identities fail closed.
+The approved bindings are Balint → existing admin ID 5 and Monika → existing ID 1.
+No accounts, roles, password hashes, shifts, ledger data or Google Calendar tokens
+are migrated. Browser native password/login-link/SAML exchanges are disabled while
+this adapter is active. Existing API credentials remain separate and the proxy's
+central group/access policy still applies to requests through the public route.
+
+The deployment mounts the adapter and security configuration read-only and loads
+its private environment file from home-automation. No additional dependency or
+SAML bridge is needed. Restrict direct port 8093 to the Pi and overwrite identity
+headers at nginx after authentication. Keep the original credentials for deliberate
+recovery; manage central passkeys/passwords through Authelia. Revert the adapter,
+proxy and access restrictions together when rolling back.
+
+The SSO deployment sets `KIMAI_LOGOUT_TARGET` to the absolute central logout URL
+`https://bgamgee.ddns.net/auth/logout` with `xrd` set to the encoded Kimai URL.
+Authelia restores this as the login page's `rd`, so the next login returns to Kimai.
+Kimai clears its local session and remember-me
+cookie before redirecting, then Authelia ends the shared browser session. Without
+this, the active central session immediately signs the user back into Kimai. The
+absolute URL avoids adding the `/kimai` base path. Standalone deployments default
+to the existing `homepage` target when this environment variable is unset.

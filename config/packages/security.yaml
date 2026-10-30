@@ -1,5 +1,6 @@
 parameters:
     env(KIMAI_COOKIE_PATH): '/'
+    env(KIMAI_LOGOUT_TARGET): 'homepage'
 
 security:
     password_hashers:
@@ -42,6 +43,7 @@ security:
             entry_point: form_login
 
             custom_authenticators:
+                - App\Security\AutheliaAuthenticator
                 - App\Saml\SamlAuthenticator
 
             remember_me:
@@ -67,7 +69,7 @@ security:
 
             logout:
                 path: logout
-                target: homepage
+                target: '%env(KIMAI_LOGOUT_TARGET)%'
                 enable_csrf: false
 
             login_throttling:

@@ -5,6 +5,7 @@ services:
             context: ..
             dockerfile: deploy/Dockerfile
         image: kimai-shifts:2.71.0-local
+        env_file: ../../../home-automation/auth/private/kimai.env
         restart: unless-stopped
         ports: ['192.168.50.150:8093:8001']
         environment:
@@ -13,6 +14,7 @@ services:
             DATABASE_URL: mysql://kimai:${DB_PASSWORD:?required}@db:3306/kimai?charset=utf8mb4&serverVersion=11.4.0-MariaDB
             DEFAULT_URI: https://bgamgee.ddns.net/kimai/
             KIMAI_COOKIE_PATH: /kimai/
+            KIMAI_LOGOUT_TARGET: https://bgamgee.ddns.net/auth/logout?xrd=https%3A%2F%2Fbgamgee.ddns.net%2Fkimai%2F
             TRUSTED_HOSTS: '^bgamgee[.]ddns[.]net$$|^192[.]168[.]50[.]150$$|^127[.]0[.]0[.]1$$|^localhost$$'
             TRUSTED_PROXIES: 192.168.50.152
             ADMINMAIL: ${ADMIN_EMAIL:?required}
@@ -25,6 +27,8 @@ services:
             memory_limit: 512M
         volumes:
             - app-data:/opt/kimai/var/data
+            - ../src/Security/AutheliaAuthenticator.php:/opt/kimai/src/Security/AutheliaAuthenticator.php:ro
+            - ../config/packages/security.yaml:/opt/kimai/config/packages/security.yaml:ro
         tmpfs:
             - /opt/kimai/var/cache:uid=33,gid=33,mode=0770,size=256m
         depends_on:
